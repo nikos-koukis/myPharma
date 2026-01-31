@@ -1,5 +1,6 @@
 import { Page } from 'playwright';
 import { config } from '../config';
+import { prisma } from '../db/client';
 
 export interface CityEntry {
   name: string;
@@ -28,12 +29,15 @@ export async function discoverCities(page: Page): Promise<CityEntry[]> {
     console.log(`[cities] Accepted cookie consent`);
   }
 
-  // 2. Extract prefecture links
+  // 2. Extract prefecture links — only from the alphabetical section (.blockContentPrefecture)
   const prefectureLinks = await page.evaluate((base: string) => {
     const links: Array<{ name: string; url: string; isDirect: boolean }> = [];
     const seen = new Set<string>();
 
-    document.querySelectorAll('a').forEach((a) => {
+    // Only search within the alphabetical prefectures grid, skip "Δημοφιλείς νομοί"
+    const container = document.querySelector('.blockContentPrefecture') ?? document;
+
+    container.querySelectorAll('a').forEach((a) => {
       const href = a.getAttribute('href') ?? '';
       const text = a.textContent?.trim() ?? '';
 
@@ -44,16 +48,15 @@ export async function discoverCities(page: Page): Promise<CityEntry[]> {
         seen.add(text);
         links.push({ name: text, url: href, isDirect: false });
       }
-      // Direct city link: /efimeries-farmakeion/city-slug/
+      // Direct city link: /efimeries-farmakeion/city-slug (no SelectedPrefecture)
       else if (
         href.includes('/efimeries-farmakeion/') &&
         href !== `${base}/` &&
         !href.includes('?') &&
-        !href.includes('Locale') &&
-        href.endsWith('/')
+        !href.includes('Locale')
       ) {
-        const slug = href.split('/efimeries-farmakeion/')[1]?.replace('/', '');
-        if (slug && slug !== '') {
+        const slug = href.replace(/\/$/, '').split('/efimeries-farmakeion/')[1] ?? '';
+        if (slug) {
           seen.add(text);
           links.push({ name: text, url: href, isDirect: true });
         }
@@ -63,10 +66,17 @@ export async function discoverCities(page: Page): Promise<CityEntry[]> {
     return links;
   }, baseUrl);
 
-  console.log(`[cities] Found ${prefectureLinks.length} prefecture entries`);
+  // Sort alphabetically by prefecture name
+  prefectureLinks.sort((a, b) => a.name.localeCompare(b.name, 'el'));
 
-  // 3. Process each prefecture
-  for (const pref of prefectureLinks) {
+  console.log(`[cities] Found ${prefectureLinks.length} prefecture entries (alphabetical)`);
+
+  // 3. Process each prefecture (with retries)
+  const totalPrefs = prefectureLinks.length;
+  const maxRetries = 3;
+
+  for (let pi = 0; pi < totalPrefs; pi++) {
+    const pref = prefectureLinks[pi];
     if (pref.isDirect) {
       // Direct city link (single city prefecture like ΓΡΕΒΕΝΩΝ → /grebena)
       const slug = pref.url.split('/efimeries-farmakeion/')[1]?.replace('/', '') ?? '';
@@ -76,54 +86,138 @@ export async function discoverCities(page: Page): Promise<CityEntry[]> {
         url: pref.url,
         prefecture: pref.name,
       });
-      console.log(`[cities] ${pref.name} → direct city: ${slug}`);
+      console.log(`[cities] [${pi + 1}/${totalPrefs}] ${pref.name} → direct city: ${slug}`);
     } else {
-      // Prefecture with multiple cities - need to load the page
-      console.log(`[cities] Loading prefecture: ${pref.name}`);
-      await page.goto(pref.url, { waitUntil: 'networkidle', timeout: config.scraper.timeout });
+      // Prefecture with multiple cities - need to load the page with retries
+      let attempt = 0;
+      let success = false;
 
-      const cityLinks = await page.evaluate((base: string) => {
-        const links: Array<{ name: string; url: string; slug: string }> = [];
-        document.querySelectorAll('a').forEach((a) => {
-          const href = a.getAttribute('href') ?? '';
-          const text = a.textContent?.trim() ?? '';
+      while (attempt < maxRetries && !success) {
+        attempt++;
+        try {
+          console.log(`[cities] [${pi + 1}/${totalPrefs}] Loading prefecture: ${pref.name}${attempt > 1 ? ` (retry ${attempt}/${maxRetries})` : ''}`);
+          await page.goto(pref.url, { waitUntil: 'networkidle', timeout: config.scraper.timeout });
 
-          if (
-            href.includes('/efimeries-farmakeion/') &&
-            !href.includes('SelectedPrefecture') &&
-            !href.includes('Locale') &&
-            href.endsWith('/') &&
-            href !== `${base}/`
-          ) {
-            const slug = href.split('/efimeries-farmakeion/')[1]?.replace('/', '');
-            if (slug && slug !== '') {
-              links.push({ name: text, url: href, slug });
-            }
+          const cityLinks = await page.evaluate((base: string) => {
+            const links: Array<{ name: string; url: string; slug: string }> = [];
+            document.querySelectorAll('a').forEach((a) => {
+              const href = a.getAttribute('href') ?? '';
+              const text = a.textContent?.trim() ?? '';
+
+              if (
+                href.includes('/efimeries-farmakeion/') &&
+                !href.includes('SelectedPrefecture') &&
+                !href.includes('Locale') &&
+                href.endsWith('/') &&
+                href !== `${base}/`
+              ) {
+                const slug = href.split('/efimeries-farmakeion/')[1]?.replace('/', '');
+                if (slug && slug !== '') {
+                  links.push({ name: text, url: href, slug });
+                }
+              }
+            });
+            return links;
+          }, baseUrl);
+
+          // Filter out navigation links
+          const uniqueCities = cityLinks.filter(
+            (c) =>
+              c.name !== 'Εφημερεύοντα Φαρμακεία' &&
+              c.name !== 'Εφημερίες Φαρμακείων' &&
+              c.name !== 'Εφημερεύοντα & Ανοιχτά Φαρμακεία'
+          );
+
+          for (const city of uniqueCities) {
+            allCities.push({
+              name: city.name,
+              slug: city.slug,
+              url: city.url,
+              prefecture: pref.name,
+            });
           }
-        });
-        return links;
-      }, baseUrl);
-
-      // Filter out navigation links
-      const uniqueCities = cityLinks.filter(
-        (c) =>
-          c.name !== 'Εφημερεύοντα Φαρμακεία' &&
-          c.name !== 'Εφημερίες Φαρμακείων' &&
-          c.name !== 'Εφημερεύοντα & Ανοιχτά Φαρμακεία'
-      );
-
-      for (const city of uniqueCities) {
-        allCities.push({
-          name: city.name,
-          slug: city.slug,
-          url: city.url,
-          prefecture: pref.name,
-        });
+          console.log(`[cities] [${pi + 1}/${totalPrefs}] ${pref.name} → ${uniqueCities.length} cities`);
+          success = true;
+        } catch (err) {
+          if (attempt >= maxRetries) {
+            console.error(`[cities] [${pi + 1}/${totalPrefs}] ${pref.name} FAILED after ${maxRetries} retries:`, err);
+          } else {
+            console.warn(`[cities] [${pi + 1}/${totalPrefs}] ${pref.name} attempt ${attempt} failed, retrying...`);
+          }
+        }
       }
-      console.log(`[cities] ${pref.name} → ${uniqueCities.length} cities`);
     }
   }
 
   console.log(`[cities] Total: ${allCities.length} cities discovered`);
   return allCities;
+}
+
+/**
+ * Syncs discovered cities to the database.
+ * Upserts all found cities and marks missing ones as inactive.
+ */
+export async function syncCitiesToDb(page: Page): Promise<number> {
+  const cities = await discoverCities(page);
+
+  const discoveredSlugs = new Set<string>();
+
+  const totalCities = cities.length;
+  for (let ci = 0; ci < totalCities; ci++) {
+    const city = cities[ci];
+    discoveredSlugs.add(city.slug);
+    console.log(`[cities] [${ci + 1}/${totalCities}] Syncing ${city.name} (${city.prefecture})`);
+    await prisma.scraperCity.upsert({
+      where: { slug: city.slug },
+      update: {
+        name: city.name,
+        url: city.url,
+        prefecture: city.prefecture,
+        active: true,
+      },
+      create: {
+        name: city.name,
+        slug: city.slug,
+        url: city.url,
+        prefecture: city.prefecture,
+        active: true,
+      },
+    });
+  }
+
+  // Mark cities not found in this discovery as inactive
+  const allDb = await prisma.scraperCity.findMany({ select: { slug: true } });
+  const toDeactivate = allDb
+    .filter((c) => !discoveredSlugs.has(c.slug))
+    .map((c) => c.slug);
+
+  if (toDeactivate.length > 0) {
+    await prisma.scraperCity.updateMany({
+      where: { slug: { in: toDeactivate } },
+      data: { active: false },
+    });
+    console.log(`[cities] Deactivated ${toDeactivate.length} cities no longer found`);
+  }
+
+  console.log(`[cities] Synced ${cities.length} cities to database`);
+  return cities.length;
+}
+
+/**
+ * Reads active cities from the database (no browser needed).
+ */
+export async function getCitiesFromDb(): Promise<CityEntry[]> {
+  const rows = await prisma.scraperCity.findMany({
+    where: { active: true },
+    orderBy: { prefecture: 'asc' },
+  });
+
+  console.log(`[cities] Loaded ${rows.length} cities from database`);
+
+  return rows.map((r) => ({
+    name: r.name,
+    slug: r.slug,
+    url: r.url,
+    prefecture: r.prefecture,
+  }));
 }

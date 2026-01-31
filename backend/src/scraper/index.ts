@@ -3,7 +3,7 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
 chromium.use(StealthPlugin());
 
-import { discoverCities, CityEntry } from './cities';
+import { discoverCities, syncCitiesToDb, getCitiesFromDb, CityEntry } from './cities';
 import { parsePharmacyPage, PharmacyData } from './parser';
 import { geocodeAddress, sleep } from './geocoder';
 import { prisma } from '../db/client';
@@ -16,25 +16,36 @@ export async function runScraper(): Promise<void> {
   const browser = await chromium.launch({ headless: true });
 
   try {
-    // 1. Discover all cities dynamically from vrisko.gr
-    const discoveryContext = await browser.newContext({
-      userAgent: randomUserAgent(),
-      viewport: { width: 1920, height: 1080 },
-      locale: 'el-GR',
-    });
-    const discoveryPage = await discoveryContext.newPage();
+    // 1. Get cities — from DB if available, otherwise discover from vrisko.gr
+    let cities: CityEntry[];
+    const dbCities = await getCitiesFromDb();
 
-    const cities = await discoverCities(discoveryPage);
-    await discoveryPage.close();
-    await discoveryContext.close();
+    if (dbCities.length > 0 && !config.scraper.scrapeRegions) {
+      cities = dbCities;
+    } else {
+      console.log('[scraper] No cities in DB or scrapeRegions=true, discovering from vrisko.gr...');
+      const discoveryContext = await browser.newContext({
+        userAgent: randomUserAgent(),
+        viewport: { width: 1920, height: 1080 },
+        locale: 'el-GR',
+      });
+      const discoveryPage = await discoveryContext.newPage();
+      await syncCitiesToDb(discoveryPage);
+      await discoveryPage.close();
+      await discoveryContext.close();
+      cities = await getCitiesFromDb();
+    }
 
     console.log(`[scraper] Will scrape ${cities.length} cities...`);
 
     // 2. Scrape pharmacies from each city in batches
     const allPharmacies: PharmacyData[] = [];
 
-    for (let i = 0; i < cities.length; i += config.scraper.concurrency) {
+    const totalCities = cities.length;
+    for (let i = 0; i < totalCities; i += config.scraper.concurrency) {
       const batch = cities.slice(i, i + config.scraper.concurrency);
+      const batchEnd = Math.min(i + config.scraper.concurrency, totalCities);
+      console.log(`[scraper] Scraping cities [${i + 1}-${batchEnd}/${totalCities}]...`);
 
       const batchResults = await Promise.allSettled(
         batch.map((city) => scrapeCity(browser, city))
@@ -53,8 +64,11 @@ export async function runScraper(): Promise<void> {
 
     // 3. Upsert into database
     let saved = 0;
-    for (const data of allPharmacies) {
+    const totalPharmacies = allPharmacies.length;
+    for (let pi = 0; pi < totalPharmacies; pi++) {
+      const data = allPharmacies[pi];
       try {
+        console.log(`[scraper] [${pi + 1}/${totalPharmacies}] Saving ${data.name} (${data.city})`);
         const pharmacy = await prisma.pharmacy.upsert({
           where: {
             name_address_city: {

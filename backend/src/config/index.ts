@@ -35,7 +35,9 @@ export const config = {
   },
 
   scraper: {
-    cronSchedule: '0 6 * * *',
+    pharmacyCron: '0 6 * * *',          // Daily at 6 AM — scrape pharmacies
+    regionCron: '0 5 * * 0',            // Weekly Sunday at 5 AM — refresh regions
+    scrapeRegions: false,                // If true, daily cron also refreshes regions
     concurrency: 3,
     timeout: 30000,
     retries: 2,
