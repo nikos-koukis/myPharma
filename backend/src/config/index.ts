@@ -40,7 +40,7 @@ export const config = {
     scrapeRegions: false,                // If true, daily cron also refreshes regions
     concurrency: 3,
     timeout: 30000,
-    retries: 2,
+    retries: 3,
     baseUrl: 'https://www.vrisko.gr/efimeries-farmakeion',
   },
 
