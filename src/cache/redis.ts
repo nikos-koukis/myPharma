@@ -6,7 +6,12 @@ export const redis = new Redis(config.redis.url);
 export async function getCache<T>(key: string): Promise<T | null> {
   if (!config.cache.enabled) return null;
   const data = await redis.get(key);
-  return data ? JSON.parse(data) : null;
+  if (data) {
+    console.log(`[cache] HIT  ${key}`);
+    return JSON.parse(data);
+  }
+  console.log(`[cache] MISS ${key}`);
+  return null;
 }
 
 export async function setCache(key: string, data: unknown, ttl?: number): Promise<void> {

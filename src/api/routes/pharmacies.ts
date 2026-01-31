@@ -37,11 +37,13 @@ export async function pharmacyRoutes(app: FastifyInstance) {
     if (region) where.region = { contains: region, mode: 'insensitive' };
     if (city) where.city = city;
 
+    console.log(`[api] DB query: on-duty pharmacies (region=${region ?? '-'}, city=${city ?? '-'}, date=${dutyDate})`);
     const pharmacies = await prisma.pharmacy.findMany({
       where,
       include: { duties: { where: { dutyDate: new Date(dutyDate) } } },
       orderBy: { name: 'asc' },
     });
+    console.log(`[api] DB result: ${pharmacies.length} pharmacies found`);
 
     await setCache(cacheKey, pharmacies);
     reply.header('X-Cache', 'MISS');
@@ -88,7 +90,7 @@ export async function pharmacyRoutes(app: FastifyInstance) {
       return cached;
     }
 
-    // Try PostGIS first, fall back to Haversine
+    console.log(`[api] DB query: nearby pharmacies (lat=${lat}, lng=${lng}, radius=${radius}m, date=${dutyDate})`);
     let pharmacies;
     try {
       pharmacies = await prisma.$queryRaw`
@@ -131,6 +133,7 @@ export async function pharmacyRoutes(app: FastifyInstance) {
       `;
     }
 
+    console.log(`[api] DB result: ${(pharmacies as unknown[]).length} nearby pharmacies found`);
     await setCache(cacheKey, pharmacies);
     reply.header('X-Cache', 'MISS');
     return pharmacies;
@@ -161,6 +164,7 @@ export async function pharmacyRoutes(app: FastifyInstance) {
       return cached;
     }
 
+    console.log(`[api] DB query: pharmacy by id (${id})`);
     const pharmacy = await prisma.pharmacy.findUnique({
       where: { id },
       include: { duties: { orderBy: { dutyDate: 'desc' }, take: 30 } },
@@ -193,6 +197,7 @@ export async function pharmacyRoutes(app: FastifyInstance) {
       return cached;
     }
 
+    console.log(`[api] DB query: all prefectures`);
     const prefectures = await prisma.pharmacy.findMany({
       select: { region: true },
       distinct: ['region'],
@@ -233,6 +238,7 @@ export async function pharmacyRoutes(app: FastifyInstance) {
       ? { region: { contains: prefecture, mode: 'insensitive' as const } }
       : {};
 
+    console.log(`[api] DB query: regions (prefecture=${prefecture ?? 'all'})`);
     const regions = await prisma.pharmacy.findMany({
       where,
       select: { region: true, city: true },
