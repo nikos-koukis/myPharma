@@ -170,7 +170,7 @@ async function scrapeCity(
     const page = await context.newPage();
 
     try {
-      console.log(`[scraper] Scraping ${city.name} (${city.prefecture}) - attempt ${attempts + 1}...`);
+      console.log(`[scraper] Scraping ${city.name} (${city.prefecture})${attempts > 0 ? ` (retry ${attempts}/${config.scraper.retries})` : ''}...`);
       console.log(`[scraper] URL: ${url}`);
       await page.goto(url, { waitUntil: 'networkidle', timeout: config.scraper.timeout });
 
