@@ -1,0 +1,44 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+model Pharmacy {
+  id        String   @id @default(uuid())
+  name      String
+  address   String
+  phone     String?
+  city      String
+  region    String
+  lat       Float?
+  lng       Float?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  duties PharmacyDuty[]
+
+  @@unique([name, address, city])
+  @@index([city])
+  @@index([region])
+  @@map("pharmacies")
+}
+
+model PharmacyDuty {
+  id         String   @id @default(uuid())
+  pharmacyId String   @map("pharmacy_id")
+  dutyDate   DateTime @map("duty_date") @db.Date
+  shift      String   // "morning" | "night" | "all_day"
+  scrapedAt  DateTime @default(now()) @map("scraped_at")
+
+  pharmacy Pharmacy @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+
+  @@unique([pharmacyId, dutyDate, shift])
+  @@index([dutyDate])
+  @@map("pharmacy_duties")
+}

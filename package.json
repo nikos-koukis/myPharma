@@ -1,0 +1,39 @@
+{
+  "name": "mypharma",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "scrape": "tsx scripts/scrape.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "db:generate": "prisma generate --schema=src/db/prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema=src/db/prisma/schema.prisma",
+    "db:push": "prisma db push --schema=src/db/prisma/schema.prisma"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/swagger": "^9.6.1",
+    "@fastify/swagger-ui": "^5.2.5",
+    "@prisma/client": "^5.22.0",
+    "dotenv": "^17.2.3",
+    "fastify": "^5.7.2",
+    "ioredis": "^5.9.2",
+    "node-cron": "^4.2.1",
+    "playwright": "^1.58.0",
+    "playwright-extra": "^4.3.6",
+    "prisma": "^5.22.0",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.1.0",
+    "@types/node-cron": "^3.0.11",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
