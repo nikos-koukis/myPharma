@@ -134,45 +134,44 @@ function ActionButton({
 }) {
   const { colors } = useTheme();
   return (
-    <Pressable onPress={onPress} style={[styles.actionBtn, { backgroundColor: colors.surfaceSecondary }]}>
-      <Ionicons name={icon} size={20} color={color} />
-      <Text style={[styles.actionLabel, { color: colors.text }]}>{label}</Text>
+    <Pressable onPress={onPress} style={[styles.actionBtn, { backgroundColor: colors.primaryLight }]}>
+      <Ionicons name={icon} size={20} color={colors.primary} />
+      <Text style={[styles.actionLabel, { color: colors.primary }]}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  map: { width: '100%', height: 180 },
-  content: { padding: 16 },
+  map: { width: '100%', height: 200 },
+  content: { padding: 20 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  name: { fontSize: 22, fontWeight: '700', flex: 1, marginRight: 12 },
-  address: { fontSize: 15, marginTop: 6 },
-  region: { fontSize: 13, marginTop: 2 },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 20 },
+  name: { fontSize: 24, fontWeight: '700', flex: 1, marginRight: 12 },
+  address: { fontSize: 15, marginTop: 8 },
+  region: { fontSize: 13, marginTop: 3 },
+  actions: { flexDirection: 'row', gap: 10, marginTop: 24 },
   actionBtn: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
     gap: 4,
   },
-  actionLabel: { fontSize: 12, fontWeight: '500' },
+  actionLabel: { fontSize: 12, fontWeight: '600' },
   sectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    marginTop: 28,
-    marginBottom: 10,
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 32,
+    marginBottom: 12,
   },
   dutyRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   dutyDate: { fontSize: 14 },
-  dutyBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 6 },
+  dutyBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
   dutyBadgeText: { fontSize: 11, fontWeight: '600', color: '#fff' },
 });

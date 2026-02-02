@@ -12,9 +12,11 @@ export default function TabLayout() {
         headerStyle: { backgroundColor: colors.background },
         headerTintColor: colors.text,
         headerShadowVisible: false,
+        headerTitleStyle: { fontSize: 17, fontWeight: '600' as const },
         tabBarStyle: {
           backgroundColor: colors.tabBar,
-          borderTopColor: colors.tabBarBorder,
+          borderTopWidth: 0,
+          elevation: 0,
         },
         tabBarActiveTintColor: colors.iconActive,
         tabBarInactiveTintColor: colors.icon,

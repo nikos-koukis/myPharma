@@ -34,7 +34,7 @@ export default function SettingsScreen() {
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Appearance</Text>
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
         {themeOptions.map((opt) => (
           <Pressable
             key={opt.value}
@@ -51,7 +51,7 @@ export default function SettingsScreen() {
       </View>
 
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Data</Text>
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
         <Pressable
           onPress={confirmClearFavorites}
           disabled={!favIds.length}
@@ -75,7 +75,7 @@ export default function SettingsScreen() {
       </View>
 
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>About</Text>
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
         <View style={styles.row}>
           <Text style={[styles.rowLabel, { color: colors.text }]}>myPharma</Text>
           <Text style={{ color: colors.textTertiary }}>v1.0.0</Text>
@@ -90,23 +90,26 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: 8 },
   sectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    fontSize: 13,
+    fontWeight: '500',
     paddingHorizontal: 20,
-    marginTop: 24,
+    marginTop: 28,
     marginBottom: 8,
   },
   card: {
     marginHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 1,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,

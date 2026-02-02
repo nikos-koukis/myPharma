@@ -18,9 +18,9 @@ export function DatePicker() {
   const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd');
 
   return (
-    <View style={[styles.container, { borderColor: colors.border }]}>
+    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
       <Pressable onPress={prev} hitSlop={10}>
-        <Ionicons name="chevron-back" size={20} color={colors.primary} />
+        <Ionicons name="chevron-back" size={22} color={colors.primary} />
       </Pressable>
       <Pressable onPress={today}>
         <Text style={[styles.date, { color: colors.text }]}>
@@ -28,7 +28,7 @@ export function DatePicker() {
         </Text>
       </Pressable>
       <Pressable onPress={next} hitSlop={10}>
-        <Ionicons name="chevron-forward" size={20} color={colors.primary} />
+        <Ionicons name="chevron-forward" size={22} color={colors.primary} />
       </Pressable>
     </View>
   );
@@ -41,10 +41,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginHorizontal: 16,
     marginVertical: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 14,
   },
-  date: { fontSize: 15, fontWeight: '600' },
+  date: { fontSize: 16, fontWeight: '600' },
 });

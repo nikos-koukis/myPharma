@@ -1,12 +1,15 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
 
-// Use your Mac's LAN IP so physical devices can connect
-// Change this if your IP changes
-const DEV_API = 'http://192.168.1.194:3000';
-const defaultURL = __DEV__ ? DEV_API : 'https://api.mypharma.gr';
+const API_URLS = {
+  LOCAL: 'http://192.168.1.194:3000',
+  PRODUCTION: 'https://api.k-tech.net.gr',
+} as const;
 
-const baseURL = Constants.expoConfig?.extra?.apiUrl ?? defaultURL;
+type ApiEnv = keyof typeof API_URLS;
+
+const API_ENV: ApiEnv = (Constants.expoConfig?.extra?.apiEnv as ApiEnv) ?? 'PRODUCTION';
+const baseURL = API_URLS[API_ENV];
 
 export const api = axios.create({
   baseURL,

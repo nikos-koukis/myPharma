@@ -68,7 +68,6 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
         styles.chip,
         {
           backgroundColor: active ? colors.primary : colors.surfaceSecondary,
-          borderColor: active ? colors.primary : colors.border,
         },
       ]}
     >
@@ -83,14 +82,13 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 16, paddingVertical: 8 },
-  label: { fontSize: 12, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase' },
+  container: { paddingHorizontal: 16, paddingVertical: 10 },
+  label: { fontSize: 13, fontWeight: '500', marginBottom: 6 },
   chips: { flexDirection: 'row' },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
     marginRight: 8,
   },
   chipText: { fontSize: 13, fontWeight: '500' },

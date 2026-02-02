@@ -50,7 +50,6 @@ export default function NearbyScreen() {
               styles.radiusChip,
               {
                 backgroundColor: radius === r ? colors.primary : colors.surfaceSecondary,
-                borderColor: radius === r ? colors.primary : colors.border,
               },
             ]}
           >
@@ -59,7 +58,10 @@ export default function NearbyScreen() {
             </Text>
           </Pressable>
         ))}
-        <Pressable onPress={() => setShowMap(!showMap)} style={styles.toggleBtn}>
+        <Pressable
+          onPress={() => setShowMap(!showMap)}
+          style={[styles.toggleChip, { backgroundColor: colors.surfaceSecondary }]}
+        >
           <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>
             {showMap ? 'List' : 'Map'}
           </Text>
@@ -110,12 +112,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   radiusChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
   },
-  toggleBtn: { marginLeft: 'auto' },
-  mapContainer: { height: 280 },
-  list: { paddingBottom: 20 },
+  toggleChip: {
+    marginLeft: 'auto',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  mapContainer: {
+    height: 300,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginHorizontal: 16,
+  },
+  list: { paddingBottom: 24 },
 });

@@ -33,7 +33,7 @@ export default function SearchScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.searchBar, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+      <View style={[styles.searchBar, { backgroundColor: colors.surfaceSecondary }]}>
         <Ionicons name="search" size={18} color={colors.textTertiary} />
         <TextInput
           style={[styles.input, { color: colors.text }]}
@@ -68,7 +68,7 @@ export default function SearchScreen() {
                   setQuery(h);
                   add(h);
                 }}
-                style={[styles.historyChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
+                style={[styles.historyChip, { backgroundColor: colors.surfaceSecondary }]}
               >
                 <Text style={{ color: colors.text, fontSize: 13 }}>{h}</Text>
               </Pressable>
@@ -99,22 +99,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     margin: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
     gap: 8,
   },
   input: { flex: 1, fontSize: 15, padding: 0 },
   historySection: { paddingHorizontal: 16, marginBottom: 8 },
   historyHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  historyTitle: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
+  historyTitle: { fontSize: 13, fontWeight: '500' },
   historyChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   historyChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
   },
-  list: { paddingBottom: 20 },
+  list: { paddingBottom: 24 },
 });

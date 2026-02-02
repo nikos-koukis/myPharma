@@ -48,6 +48,6 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  list: { paddingBottom: 20 },
+  container: { flex: 1, paddingTop: 4 },
+  list: { paddingBottom: 24, paddingTop: 4 },
 });

@@ -180,6 +180,8 @@ npm run sync-regions
 npx prisma studio --schema=src/db/prisma/schema.prisma
 
 ssh -L 5555:localhost:5555 deploy@65.108.220.96
+or
+ssh -L 5555:localhost:5555 mypharma
 ```
 
 ---
@@ -364,6 +366,27 @@ SELECT COUNT(*) FROM pharmacy_duties;
 # Prisma Studio (web UI)
 cd ~/mypharma/app
 npx prisma studio --schema=src/db/prisma/schema.prisma
+
+# Reset DB (drop all tables + recreate)
+npx prisma db push --force-reset --schema=src/db/prisma/schema.prisma
+```
+
+### Migrate Local DB to Production
+
+```bash
+# 1. Dump local DB
+pg_dump -U mypharma -h localhost mypharma > /tmp/mypharma_dump.sql
+
+# 2. Copy to server
+scp /tmp/mypharma_dump.sql mypharma:~/
+
+# 3. Restore on server (make sure schema is up to date first)
+ssh mypharma "docker exec -i mypharma-postgres-1 psql -U mypharma mypharma < ~/mypharma_dump.sql"
+
+# Or dump only specific tables (data only)
+pg_dump -U mypharma -h localhost --data-only -t pharmacies -t scraper_cities -t pharmacy_duties mypharma > /tmp/mypharma_data.sql
+scp /tmp/mypharma_data.sql mypharma:~/
+ssh mypharma "docker exec -i mypharma-postgres-1 psql -U mypharma mypharma < ~/mypharma_data.sql"
 ```
 
 ### Redis

@@ -29,7 +29,7 @@ export function PharmacyCard({ pharmacy, distance, shift }: Props) {
 
   return (
     <Pressable
-      style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+      style={[styles.card, { backgroundColor: colors.card }]}
       onPress={() => router.push(`/pharmacy/${pharmacy.id}`)}
     >
       <View style={styles.row}>
@@ -89,19 +89,23 @@ export function PharmacyCard({ pharmacy, distance, shift }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 14,
+    borderRadius: 14,
+    padding: 16,
     marginHorizontal: 16,
-    marginVertical: 5,
+    marginVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 1,
   },
   row: { flexDirection: 'row', alignItems: 'flex-start' },
   info: { flex: 1, marginRight: 10 },
-  name: { fontSize: 16, fontWeight: '600', marginBottom: 3 },
-  address: { fontSize: 13, lineHeight: 18, marginBottom: 6 },
+  name: { fontSize: 17, fontWeight: '600', marginBottom: 4 },
+  address: { fontSize: 14, lineHeight: 20, marginBottom: 8 },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   metaText: { fontSize: 12 },
-  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  badge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
   badgeText: { fontSize: 11, fontWeight: '600', color: '#fff' },
 });
