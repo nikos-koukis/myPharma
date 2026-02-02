@@ -44,6 +44,12 @@ export const config = {
     baseUrl: 'https://www.vrisko.gr/efimeries-farmakeion',
   },
 
+  proxy: {
+    server: env('PROXY_SERVER', ''),
+    username: env('PROXY_USERNAME', ''),
+    password: env('PROXY_PASSWORD', ''),
+  },
+
   geocoder: {
     provider: 'nominatim' as 'nominatim' | 'google' | 'geoapify',
     apiKey: env('GEOCODER_API_KEY', ''),

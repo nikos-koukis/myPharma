@@ -14,7 +14,7 @@ export interface CityEntry {
  * 1. Scraping the main page to get all prefecture links
  * 2. For each prefecture, scraping the city links
  */
-export async function discoverCities(page: Page): Promise<CityEntry[]> {
+export async function discoverCities(page: Page, prefectureFilter?: string): Promise<CityEntry[]> {
   const baseUrl = config.scraper.baseUrl;
   const allCities: CityEntry[] = [];
 
@@ -70,6 +70,16 @@ export async function discoverCities(page: Page): Promise<CityEntry[]> {
   prefectureLinks.sort((a, b) => a.name.localeCompare(b.name, 'el'));
 
   console.log(`[cities] Found ${prefectureLinks.length} prefecture entries (alphabetical)`);
+
+  // Filter prefectures if requested
+  if (prefectureFilter) {
+    const q = prefectureFilter.toLowerCase();
+    const before = prefectureLinks.length;
+    const filtered = prefectureLinks.filter((p) => p.name.toLowerCase().includes(q));
+    prefectureLinks.length = 0;
+    prefectureLinks.push(...filtered);
+    console.log(`[cities] Filtered by "${prefectureFilter}" → ${prefectureLinks.length}/${before} prefectures`);
+  }
 
   // 3. Process each prefecture (with retries)
   const totalPrefs = prefectureLinks.length;
@@ -157,8 +167,8 @@ export async function discoverCities(page: Page): Promise<CityEntry[]> {
  * Syncs discovered cities to the database.
  * Upserts all found cities and marks missing ones as inactive.
  */
-export async function syncCitiesToDb(page: Page): Promise<number> {
-  const cities = await discoverCities(page);
+export async function syncCitiesToDb(page: Page, prefectureFilter?: string): Promise<number> {
+  const cities = await discoverCities(page, prefectureFilter);
 
   const discoveredSlugs = new Set<string>();
 
@@ -185,18 +195,20 @@ export async function syncCitiesToDb(page: Page): Promise<number> {
     });
   }
 
-  // Mark cities not found in this discovery as inactive
-  const allDb = await prisma.scraperCity.findMany({ select: { slug: true } });
-  const toDeactivate = allDb
-    .filter((c) => !discoveredSlugs.has(c.slug))
-    .map((c) => c.slug);
+  // Mark cities not found in this discovery as inactive (only when syncing all)
+  if (!prefectureFilter) {
+    const allDb = await prisma.scraperCity.findMany({ select: { slug: true } });
+    const toDeactivate = allDb
+      .filter((c) => !discoveredSlugs.has(c.slug))
+      .map((c) => c.slug);
 
-  if (toDeactivate.length > 0) {
-    await prisma.scraperCity.updateMany({
-      where: { slug: { in: toDeactivate } },
-      data: { active: false },
-    });
-    console.log(`[cities] Deactivated ${toDeactivate.length} cities no longer found`);
+    if (toDeactivate.length > 0) {
+      await prisma.scraperCity.updateMany({
+        where: { slug: { in: toDeactivate } },
+        data: { active: false },
+      });
+      console.log(`[cities] Deactivated ${toDeactivate.length} cities no longer found`);
+    }
   }
 
   console.log(`[cities] Synced ${cities.length} cities to database`);
