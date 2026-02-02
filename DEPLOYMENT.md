@@ -13,7 +13,7 @@
 - **Name**: `mypharma`
 
 ### 2. SSH Access
-
+deploy
 ```bash
 # First time — copy your key to the server
 ssh-copy-id -i ~/.ssh/id_ed25519_koukis root@YOUR_SERVER_IP

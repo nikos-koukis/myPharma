@@ -20,7 +20,8 @@ export async function discoverCities(page: Page, prefectureFilter?: string): Pro
 
   // 1. Load main page to get prefecture links
   console.log(`[cities] Loading main page: ${baseUrl}/`);
-  await page.goto(`${baseUrl}/`, { waitUntil: 'networkidle', timeout: config.scraper.timeout });
+  const response = await page.goto(`${baseUrl}/`, { waitUntil: 'networkidle', timeout: config.scraper.timeout });
+  console.log(`[cities] Response: ${response?.status()} ${response?.statusText()} (url: ${response?.url()})`);
 
   // Accept cookies
   const acceptBtn = page.locator('#accept-btn');
@@ -106,7 +107,8 @@ export async function discoverCities(page: Page, prefectureFilter?: string): Pro
         attempt++;
         try {
           console.log(`[cities] [${pi + 1}/${totalPrefs}] Loading prefecture: ${pref.name}${attempt > 1 ? ` (retry ${attempt}/${maxRetries})` : ''}`);
-          await page.goto(pref.url, { waitUntil: 'networkidle', timeout: config.scraper.timeout });
+          const prefResponse = await page.goto(pref.url, { waitUntil: 'networkidle', timeout: config.scraper.timeout });
+          console.log(`[cities] [${pi + 1}/${totalPrefs}] Response: ${prefResponse?.status()} ${prefResponse?.statusText()}`);
 
           const cityLinks = await page.evaluate((base: string) => {
             const links: Array<{ name: string; url: string; slug: string }> = [];
