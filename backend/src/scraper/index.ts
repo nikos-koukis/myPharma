@@ -131,20 +131,22 @@ export async function runScraper(filter?: ScrapeFilter): Promise<void> {
               await sleep(config.geocoder.rateLimit);
             }
 
-            // Upsert duty record
+            // Upsert duty record with all duty slots
             await prisma.pharmacyDuty.upsert({
               where: {
-                pharmacyId_dutyDate_shift: {
+                pharmacyId_dutyDate: {
                   pharmacyId: pharmacy.id,
                   dutyDate: new Date(data.dutyDate),
-                  shift: data.shift,
                 },
               },
-              update: { scrapedAt: new Date() },
+              update: {
+                scrapedAt: new Date(),
+                duties: data.duties,
+              },
               create: {
                 pharmacyId: pharmacy.id,
                 dutyDate: new Date(data.dutyDate),
-                shift: data.shift,
+                duties: data.duties,
               },
             });
 
@@ -209,7 +211,7 @@ async function scrapeCity(
       const response = await page.goto(url, { waitUntil: 'networkidle', timeout: config.scraper.timeout });
       console.log(`[scraper] Response: ${response?.status()} ${response?.statusText()}`);
 
-      const pharmacies = await parsePharmacyPage(page, city.slug);
+      const pharmacies = await parsePharmacyPage(page, city.name);
 
       // Set prefecture as region if parser didn't find one
       const enriched = pharmacies.map((p) => ({

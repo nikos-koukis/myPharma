@@ -377,7 +377,7 @@ npx prisma db push --force-reset --schema=src/db/prisma/schema.prisma
 # 1. Dump local DB
 pg_dump -U mypharma -h localhost mypharma > /tmp/mypharma_dump.sql
 or
-docker exec backend-postgres-1 pg_dump -U mypharma mypharma > /tmp/mypharma_dump.sql
+
 
 # 2. Copy to server
 scp /tmp/mypharma_dump.sql mypharma:~/

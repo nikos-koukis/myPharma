@@ -49,12 +49,12 @@ model PharmacyDuty {
   id         String   @id @default(uuid())
   pharmacyId String   @map("pharmacy_id")
   dutyDate   DateTime @map("duty_date") @db.Date
-  shift      String   // "morning" | "night" | "all_day"
+  duties     Json     // Array of { start: string, end: string, type: "regular" | "extended" | "on_duty" }
   scrapedAt  DateTime @default(now()) @map("scraped_at")
 
   pharmacy Pharmacy @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
 
-  @@unique([pharmacyId, dutyDate, shift])
+  @@unique([pharmacyId, dutyDate])
   @@index([dutyDate])
   @@map("pharmacy_duties")
 }

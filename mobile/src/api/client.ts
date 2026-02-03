@@ -10,6 +10,7 @@ type ApiEnv = keyof typeof API_URLS;
 
 const API_ENV: ApiEnv = (Constants.expoConfig?.extra?.apiEnv as ApiEnv) ?? 'PRODUCTION';
 const baseURL = API_URLS[API_ENV];
+console.log(`[api] Using API environment: ${API_ENV} (${baseURL})`);
 
 export const api = axios.create({
   baseURL,

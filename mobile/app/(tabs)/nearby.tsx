@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,47 +6,73 @@ import {
   StyleSheet,
   TextInput,
   FlatList,
-  SafeAreaView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { PharmacyIcon } from '../../src/components/PharmacyIcon';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { useLocation } from '../../src/hooks/useLocation';
 import { useNearbyPharmacies } from '../../src/hooks/usePharmacies';
 import { PharmacyMap } from '../../src/components/PharmacyMap';
+import { PharmacyCard } from '../../src/components/PharmacyCard';
 import { LoadingState } from '../../src/components/LoadingState';
 import { EmptyState } from '../../src/components/EmptyState';
 import { useAppStore } from '../../src/store';
-import { useFavorites } from '../../src/hooks/useFavorites';
-import { openDirections } from '../../src/utils/linking';
-import type { NearbyPharmacy } from '../../src/types';
+import { isOpenNow } from '../../src/utils/dutySchedule';
 
-const RADIUS = 5000;
+const RADIUS_OPTIONS = [
+  { label: '1km', value: 1000 },
+  { label: '2km', value: 2000 },
+  { label: '5km', value: 5000 },
+  { label: '10km', value: 10000 },
+];
+
+type StatusFilter = 'all' | 'open' | 'closed';
+
+const STATUS_OPTIONS: { label: string; value: StatusFilter; color: 'primary' | 'success' | 'error' }[] = [
+  { label: 'Όλα', value: 'all', color: 'primary' },
+  { label: 'Ανοιχτά', value: 'open', color: 'success' },
+  { label: 'Κλειστά', value: 'closed', color: 'error' },
+];
 
 export default function NearbyScreen() {
   const { colors } = useTheme();
-  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { lat, lng, loading: locLoading, error: locError } = useLocation();
   const selectedDate = useAppStore((s) => s.selectedDate);
   const [searchQuery, setSearchQuery] = useState('');
   const [showList, setShowList] = useState(false);
+  const [selectedRadius, setSelectedRadius] = useState(5000);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
 
   const { data, isLoading, refetch, isRefetching } = useNearbyPharmacies({
     lat: lat ?? 0,
     lng: lng ?? 0,
-    radius: RADIUS,
+    radius: selectedRadius,
     date: selectedDate,
     enabled: lat != null && lng != null,
   });
 
-  const filteredData = data?.filter((p) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      p.name.toLowerCase().includes(q) ||
-      p.address.toLowerCase().includes(q)
-    );
-  });
+  const filteredData = useMemo(() => {
+    if (!data) return [];
+    return data.filter((p) => {
+      // Filter by search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        if (!p.name.toLowerCase().includes(q) && !p.address.toLowerCase().includes(q)) {
+          return false;
+        }
+      }
+      // Filter by status
+      if (statusFilter === 'open' && !isOpenNow(p.duties)) {
+        return false;
+      }
+      if (statusFilter === 'closed' && isOpenNow(p.duties)) {
+        return false;
+      }
+      return true;
+    });
+  }, [data, searchQuery, statusFilter]);
 
   if (locLoading) {
     return (
@@ -74,10 +100,10 @@ export default function NearbyScreen() {
       {lat && lng && !showList && (
         <View style={styles.mapWrapper}>
           <PharmacyMap
-            pharmacies={data ?? []}
+            pharmacies={filteredData}
             userLat={lat}
             userLng={lng}
-            radius={RADIUS}
+            radius={selectedRadius}
           />
         </View>
       )}
@@ -87,21 +113,104 @@ export default function NearbyScreen() {
         <FlatList
           data={filteredData}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <PharmacyListItem pharmacy={item} />}
-          contentContainerStyle={styles.listContent}
+          renderItem={({ item }) => <PharmacyCard pharmacy={item} />}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingTop: insets.top + 16 }
+          ]}
           showsVerticalScrollIndicator={false}
           refreshing={isRefetching}
           onRefresh={refetch}
           ListHeaderComponent={
-            <View style={styles.resultsHeader}>
-              <Ionicons name="location" size={18} color={colors.primary} />
-              <View>
+            <View style={styles.listHeader}>
+              {/* Search bar in list */}
+              <View style={styles.listSearchContainer}>
+                <View style={[styles.listSearchBar, { backgroundColor: colors.surfaceSecondary }]}>
+                  <Ionicons name="search" size={18} color={colors.textTertiary} />
+                  <TextInput
+                    style={[styles.listSearchInput, { color: colors.text }]}
+                    placeholder="Αναζήτηση φαρμακείου..."
+                    placeholderTextColor={colors.textTertiary}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                  {searchQuery.length > 0 && (
+                    <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+                      <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
+                    </Pressable>
+                  )}
+                </View>
+                <Pressable
+                  style={[styles.mapToggleBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => setShowList(false)}
+                >
+                  <Ionicons name="map" size={20} color="#FFFFFF" />
+                </Pressable>
+              </View>
+
+              {/* Results count */}
+              <View style={styles.resultsHeader}>
                 <Text style={[styles.resultsCount, { color: colors.text }]}>
                   {filteredData?.length ?? 0} φαρμακεία
                 </Text>
                 <Text style={[styles.resultsRadius, { color: colors.textTertiary }]}>
-                  Σε ακτίνα {RADIUS / 1000}km
+                  {' '}· σε {selectedRadius / 1000}km
                 </Text>
+              </View>
+
+              {/* Status Filters */}
+              <View style={styles.filtersContainer}>
+                {STATUS_OPTIONS.map((option) => {
+                  const isSelected = statusFilter === option.value;
+                  const chipColor = isSelected ? colors[option.color] : colors.textSecondary;
+                  const chipBg = isSelected
+                    ? (option.color === 'success' ? colors.successLight : option.color === 'error' ? colors.errorLight : colors.primaryLight)
+                    : colors.surfaceSecondary;
+                  return (
+                    <Pressable
+                      key={option.value}
+                      style={[
+                        styles.filterChip,
+                        { backgroundColor: chipBg, borderColor: isSelected ? chipColor : colors.border },
+                      ]}
+                      onPress={() => setStatusFilter(option.value)}
+                    >
+                      {option.value !== 'all' && (
+                        <View style={[styles.filterDot, { backgroundColor: chipColor }]} />
+                      )}
+                      <Text style={[styles.filterChipText, { color: chipColor }]}>
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Radius Filters */}
+              <View style={styles.filtersContainer}>
+                <Ionicons name="locate-outline" size={16} color={colors.textTertiary} style={{ marginRight: 4 }} />
+                {RADIUS_OPTIONS.map((option) => (
+                  <Pressable
+                    key={option.value}
+                    style={[
+                      styles.filterChip,
+                      {
+                        backgroundColor: selectedRadius === option.value ? colors.primaryLight : colors.surfaceSecondary,
+                        borderColor: selectedRadius === option.value ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedRadius(option.value)}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        { color: selectedRadius === option.value ? colors.primary : colors.textSecondary },
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
             </View>
           }
@@ -119,16 +228,16 @@ export default function NearbyScreen() {
         />
       )}
 
-      {/* Bottom Search Bar */}
-      <SafeAreaView style={styles.bottomSafeArea}>
-        <View style={[styles.searchBarContainer]}>
+      {/* Bottom Search Bar - Map view only */}
+      {!showList && (
+        <View style={[styles.bottomSafeArea, { paddingBottom: insets.bottom + 16 }]}>
           <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.logoContainer, { backgroundColor: colors.primaryLight }]}>
-              <Ionicons name="medical" size={20} color={colors.primary} />
+              <PharmacyIcon size={22} color={colors.primary} />
             </View>
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Αναζήτηση πόλης, φαρμακείου..."
+              placeholder="Αναζήτηση φαρμακείου..."
               placeholderTextColor={colors.textTertiary}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -139,82 +248,14 @@ export default function NearbyScreen() {
                 styles.toggleBtn,
                 { backgroundColor: colors.surfaceSecondary, opacity: pressed ? 0.7 : 1 },
               ]}
-              onPress={() => setShowList(!showList)}
+              onPress={() => setShowList(true)}
             >
-              <Ionicons
-                name={showList ? 'map-outline' : 'list-outline'}
-                size={20}
-                color={colors.primary}
-              />
+              <Ionicons name="list" size={20} color={colors.primary} />
             </Pressable>
           </View>
         </View>
-      </SafeAreaView>
+      )}
     </View>
-  );
-}
-
-function PharmacyListItem({ pharmacy }: { pharmacy: NearbyPharmacy }) {
-  const { colors } = useTheme();
-  const router = useRouter();
-  const { isFavorite, toggle } = useFavorites();
-  const fav = isFavorite(pharmacy.id);
-
-  const distance = pharmacy.distance_meters < 1000
-    ? `${Math.round(pharmacy.distance_meters)}m`
-    : `${(pharmacy.distance_meters / 1000).toFixed(1)}km`;
-
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.pharmacyItem,
-        { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.8 : 1 },
-      ]}
-      onPress={() => router.push(`/pharmacy/${pharmacy.id}`)}
-    >
-      <View style={styles.pharmacyLeft}>
-        <View style={[styles.pharmacyIcon, { backgroundColor: colors.primaryLight }]}>
-          <Ionicons name="medical" size={18} color={colors.primary} />
-        </View>
-        <View style={styles.pharmacyInfo}>
-          <Text style={[styles.pharmacyName, { color: colors.text }]} numberOfLines={1}>
-            {pharmacy.name}
-          </Text>
-          <View style={[styles.openBadge, { backgroundColor: colors.successLight }]}>
-            <Text style={[styles.openText, { color: colors.success }]}>ΑΝΟΙΧΤΟ</Text>
-          </View>
-          <Text style={[styles.pharmacyHours, { color: colors.textTertiary }]} numberOfLines={1}>
-            <Ionicons name="time-outline" size={12} /> Εφημερεύει: 08:00 - 21:00
-          </Text>
-          <Text style={[styles.pharmacyAddress, { color: colors.textTertiary }]} numberOfLines={1}>
-            {pharmacy.address}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.pharmacyRight}>
-        <Text style={[styles.pharmacyDistance, { color: colors.textSecondary }]}>{distance}</Text>
-        <View style={styles.pharmacyActions}>
-          <Pressable
-            onPress={() => toggle(pharmacy.id)}
-            hitSlop={8}
-            style={styles.actionBtn}
-          >
-            <Ionicons
-              name={fav ? 'heart' : 'heart-outline'}
-              size={20}
-              color={fav ? colors.error : colors.textTertiary}
-            />
-          </Pressable>
-          <Pressable
-            onPress={() => openDirections(pharmacy.lat, pharmacy.lng, pharmacy.name)}
-            hitSlop={8}
-            style={styles.actionBtn}
-          >
-            <Ionicons name="navigate-outline" size={20} color={colors.textTertiary} />
-          </Pressable>
-        </View>
-      </View>
-    </Pressable>
   );
 }
 
@@ -230,10 +271,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-  },
-  searchBarContainer: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
   },
   searchBar: {
     flexDirection: 'row',
@@ -268,85 +306,75 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  resultsHeader: {
+  listHeader: {
+    gap: 12,
+    paddingBottom: 12,
+  },
+  listSearchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    paddingHorizontal: 16,
+  },
+  listSearchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 10,
+  },
+  listSearchInput: {
+    flex: 1,
+    fontSize: 15,
+    padding: 0,
+  },
+  mapToggleBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resultsHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
     paddingHorizontal: 20,
-    paddingVertical: 16,
   },
   resultsCount: {
     fontSize: 16,
     fontWeight: '600',
   },
   resultsRadius: {
+    fontSize: 14,
+  },
+  filtersContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+  },
+  filterDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  filterChipText: {
     fontSize: 13,
+    fontWeight: '600',
   },
   listContent: {
-    paddingBottom: 120,
-  },
-  pharmacyItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginHorizontal: 16,
-    marginBottom: 10,
-  },
-  pharmacyLeft: {
-    flexDirection: 'row',
-    flex: 1,
-    gap: 12,
-  },
-  pharmacyIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pharmacyInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  pharmacyName: {
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: -0.2,
-  },
-  openBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginVertical: 2,
-  },
-  openText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  pharmacyHours: {
-    fontSize: 12,
-  },
-  pharmacyAddress: {
-    fontSize: 12,
-  },
-  pharmacyRight: {
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  pharmacyDistance: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  pharmacyActions: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  actionBtn: {
-    padding: 6,
+    paddingBottom: 40,
   },
 });

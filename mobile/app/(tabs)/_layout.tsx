@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { PharmacyIcon } from '../../src/components/PharmacyIcon';
 import { useTheme } from '../../src/theme/ThemeProvider';
 
 export default function TabLayout() {
@@ -41,12 +42,8 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Εφημερίες',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'medical' : 'medical-outline'}
-              size={24}
-              color={color}
-            />
+          tabBarIcon: ({ color }) => (
+            <PharmacyIcon size={26} color={color} />
           ),
         }}
       />

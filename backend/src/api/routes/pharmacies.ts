@@ -15,7 +15,7 @@ export async function pharmacyRoutes(app: FastifyInstance) {
         type: 'object',
         properties: {
           region: { type: 'string', description: 'Filter by region/prefecture (case-insensitive)' },
-          city: { type: 'string', description: 'Filter by city' },
+          city: { type: 'string', description: 'Filter by city (slug or name)' },
           date: { type: 'string', format: 'date', description: 'Duty date (YYYY-MM-DD), defaults to today' },
         },
       },
@@ -24,7 +24,18 @@ export async function pharmacyRoutes(app: FastifyInstance) {
     const { region, city, date } = req.query;
     const dutyDate = date ?? new Date().toISOString().split('T')[0];
 
-    const cacheKey = buildCacheKey('pharmacies', 'on-duty', region ?? city ?? 'all', dutyDate);
+    // Resolve city slug to Greek name if needed
+    let resolvedCity = city;
+    if (city) {
+      const scraperCity = await prisma.scraperCity.findFirst({
+        where: { slug: city.toLowerCase() },
+      });
+      if (scraperCity) {
+        resolvedCity = scraperCity.name;
+      }
+    }
+
+    const cacheKey = buildCacheKey('pharmacies', 'on-duty', region ?? resolvedCity ?? 'all', dutyDate);
     const cached = await getCache(cacheKey);
     if (cached) {
       reply.header('X-Cache', 'HIT');
@@ -35,14 +46,20 @@ export async function pharmacyRoutes(app: FastifyInstance) {
       duties: { some: { dutyDate: new Date(dutyDate) } },
     };
     if (region) where.region = { contains: region, mode: 'insensitive' };
-    if (city) where.city = city;
+    if (resolvedCity) where.city = resolvedCity;
 
-    console.log(`[api] DB query: on-duty pharmacies (region=${region ?? '-'}, city=${city ?? '-'}, date=${dutyDate})`);
+    console.log(`[api] DB query: on-duty pharmacies (region=${region ?? '-'}, city=${resolvedCity ?? '-'}, date=${dutyDate})`);
     const pharmacies = await prisma.pharmacy.findMany({
       where,
-      include: { duties: { where: { dutyDate: new Date(dutyDate) } } },
+      include: {
+        duties: {
+          where: { dutyDate: new Date(dutyDate) },
+          select: { duties: true, dutyDate: true },
+        },
+      },
       orderBy: { name: 'asc' },
     });
+
     console.log(`[api] DB result: ${pharmacies.length} pharmacies found`);
 
     await setCache(cacheKey, pharmacies);
@@ -94,7 +111,7 @@ export async function pharmacyRoutes(app: FastifyInstance) {
     let pharmacies;
     try {
       pharmacies = await prisma.$queryRaw`
-        SELECT p.*, pd.duty_date, pd.shift,
+        SELECT p.*, pd.duty_date, pd.duties,
           ST_Distance(
             ST_SetSRID(ST_MakePoint(p.lng, p.lat), 4326)::geography,
             ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography
@@ -116,7 +133,7 @@ export async function pharmacyRoutes(app: FastifyInstance) {
       console.log('[api] PostGIS not available, using Haversine fallback');
       pharmacies = await prisma.$queryRaw`
         SELECT *, distance_meters FROM (
-          SELECT p.*, pd.duty_date, pd.shift,
+          SELECT p.*, pd.duty_date, pd.duties,
             (6371000 * acos(
               cos(radians(${lat})) * cos(radians(p.lat)) *
               cos(radians(p.lng) - radians(${lng})) +
@@ -157,7 +174,7 @@ export async function pharmacyRoutes(app: FastifyInstance) {
   }, async (req, reply) => {
     const { id } = req.params;
 
-    const cacheKey = buildCacheKey('pharmacy', id);
+    const cacheKey = buildCacheKey('pharmacies', id);
     const cached = await getCache(cacheKey);
     if (cached) {
       reply.header('X-Cache', 'HIT');
@@ -167,13 +184,20 @@ export async function pharmacyRoutes(app: FastifyInstance) {
     console.log(`[api] DB query: pharmacy by id (${id})`);
     const pharmacy = await prisma.pharmacy.findUnique({
       where: { id },
-      include: { duties: { orderBy: { dutyDate: 'desc' }, take: 30 } },
+      include: {
+        duties: {
+          orderBy: { dutyDate: 'desc' },
+          take: 7, // Last 7 days of duties
+        },
+      },
     });
 
     if (!pharmacy) {
       reply.status(404);
       return { error: 'Pharmacy not found' };
     }
+
+    console.log(`[api] DB result: pharmacy ${pharmacy.name} found`);
 
     await setCache(cacheKey, pharmacy);
     reply.header('X-Cache', 'MISS');

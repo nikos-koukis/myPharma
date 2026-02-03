@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Alert, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { PharmacyIcon } from '../../src/components/PharmacyIcon';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { useAppStore } from '../../src/store';
 import { useFavorites } from '../../src/hooks/useFavorites';
@@ -108,7 +109,7 @@ export default function SettingsScreen() {
       <View style={[styles.card, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
         <View style={styles.row}>
           <View style={[styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
-            <Ionicons name="medical" size={18} color={colors.primary} />
+            <PharmacyIcon size={20} color={colors.primary} />
           </View>
           <Text style={[styles.rowLabel, { color: colors.text }]}>myPharma</Text>
           <Text style={[styles.version, { color: colors.textTertiary }]}>v1.0.0</Text>
