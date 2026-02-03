@@ -6,6 +6,7 @@ chromium.use(StealthPlugin());
 import { discoverCities, syncCitiesToDb, getCitiesFromDb, CityEntry } from './cities';
 import { parsePharmacyPage, PharmacyData } from './parser';
 import { geocodeAddress, sleep } from './geocoder';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../db/client';
 import { invalidatePattern } from '../cache/redis';
 import { config } from '../config';
@@ -141,12 +142,12 @@ export async function runScraper(filter?: ScrapeFilter): Promise<void> {
               },
               update: {
                 scrapedAt: new Date(),
-                duties: data.duties,
+                duties: data.duties as unknown as Prisma.InputJsonValue,
               },
               create: {
                 pharmacyId: pharmacy.id,
                 dutyDate: new Date(data.dutyDate),
-                duties: data.duties,
+                duties: data.duties as unknown as Prisma.InputJsonValue,
               },
             });
 

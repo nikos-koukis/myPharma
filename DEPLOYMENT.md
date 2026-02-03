@@ -179,9 +179,9 @@ npm run sync-regions
 # Verify in Prisma Studio (optional)
 npx prisma studio --schema=src/db/prisma/schema.prisma
 
-ssh -L 5555:localhost:5555 deploy@65.108.220.96
+ssh -L 5556:localhost:5556 root@65.108.220.96
 or
-ssh -L 5555:localhost:5555 mypharma
+ssh -L 5556:localhost:5556 mypharma
 ```
 
 ---
@@ -341,7 +341,7 @@ npm run scrape -- -c athina
 # Scrape only a specific region/prefecture
 npm run scrape -- --region ΑΧΑΪΑΣ
 npm run scrape -- --region ΑΤΤΙΚΗΣ
-npm run scrape -- -r ΘΕΣΣΑΛΟΝΙΚΗΣ
+npm run scrape -- --region ΘΕΣΣΑΛΟΝΙΚΗΣ
 
 # Example: sync + scrape only Patra
 npm run sync-regions -- -r ΑΧΑΪΑΣ && npm run scrape -- --city patra
