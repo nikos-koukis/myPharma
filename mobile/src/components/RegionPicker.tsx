@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 import { usePrefectures, useRegions } from '../hooks/usePharmacies';
 import { useAppStore } from '../store';
@@ -18,8 +17,12 @@ export function RegionPicker() {
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>Prefecture</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
+      <Text style={[styles.label, { color: colors.textTertiary }]}>Prefecture</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipsContent}
+      >
         <Chip
           label="All"
           active={!selectedPrefecture}
@@ -37,8 +40,14 @@ export function RegionPicker() {
 
       {selectedPrefecture && cities.length > 0 ? (
         <>
-          <Text style={[styles.label, { color: colors.textSecondary, marginTop: 8 }]}>City</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
+          <Text style={[styles.label, { color: colors.textTertiary, marginTop: 12 }]}>
+            City
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipsContent}
+          >
             <Chip
               label="All"
               active={!selectedCity}
@@ -64,15 +73,23 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
   return (
     <Pressable
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         styles.chip,
         {
           backgroundColor: active ? colors.primary : colors.surfaceSecondary,
+          borderColor: active ? colors.primary : colors.border,
+          opacity: pressed ? 0.7 : 1,
         },
       ]}
     >
       <Text
-        style={[styles.chipText, { color: active ? '#fff' : colors.text }]}
+        style={[
+          styles.chipText,
+          {
+            color: active ? '#fff' : colors.textSecondary,
+            fontWeight: active ? '600' : '500',
+          },
+        ]}
         numberOfLines={1}
       >
         {label}
@@ -82,14 +99,30 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 16, paddingVertical: 10 },
-  label: { fontSize: 13, fontWeight: '500', marginBottom: 6 },
-  chips: { flexDirection: 'row' },
+  container: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  chipsContent: {
+    paddingRight: 20,
+    gap: 8,
+    flexDirection: 'row',
+  },
   chip: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  chipText: { fontSize: 13, fontWeight: '500' },
+  chipText: {
+    fontSize: 14,
+    letterSpacing: -0.2,
+  },
 });

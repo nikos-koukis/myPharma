@@ -27,61 +27,80 @@ export function PharmacyCard({ pharmacy, distance, shift }: Props) {
   const displayDistance =
     distance ?? ('distance_meters' in pharmacy ? (pharmacy as NearbyPharmacy).distance_meters : undefined);
 
+  const getBadgeColors = (shiftType: string) => {
+    switch (shiftType) {
+      case 'morning':
+        return { bg: colors.dutyMorningLight, text: colors.dutyMorning };
+      case 'night':
+        return { bg: colors.dutyNightLight, text: colors.dutyNight };
+      default:
+        return { bg: colors.dutyAllDayLight, text: colors.dutyAllDay };
+    }
+  };
+
   return (
     <Pressable
-      style={[styles.card, { backgroundColor: colors.card }]}
+      style={({ pressed }) => [
+        styles.card,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          opacity: pressed ? 0.7 : 1,
+        },
+      ]}
       onPress={() => router.push(`/pharmacy/${pharmacy.id}`)}
     >
-      <View style={styles.row}>
-        <View style={styles.info}>
-          <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-            {pharmacy.name}
-          </Text>
-          <Text style={[styles.address, { color: colors.textSecondary }]} numberOfLines={2}>
-            {pharmacy.address}
-          </Text>
-          <View style={styles.meta}>
-            {pharmacy.phone ? (
-              <View style={styles.metaItem}>
-                <Ionicons name="call-outline" size={13} color={colors.textTertiary} />
-                <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                  {pharmacy.phone}
-                </Text>
-              </View>
-            ) : null}
-            {displayShift ? (
-              <View
-                style={[
-                  styles.badge,
-                  {
-                    backgroundColor:
-                      displayShift === 'morning'
-                        ? colors.dutyMorning
-                        : displayShift === 'night'
-                          ? colors.dutyNight
-                          : colors.dutyAllDay,
-                  },
-                ]}
-              >
-                <Text style={styles.badgeText}>{shiftLabel(displayShift)}</Text>
-              </View>
-            ) : null}
-            {displayDistance != null ? (
-              <Text style={[styles.metaText, { color: colors.primary }]}>
+      <View style={styles.header}>
+        <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+          {pharmacy.name}
+        </Text>
+        <Pressable
+          onPress={() => toggle(pharmacy.id)}
+          hitSlop={12}
+          style={styles.favoriteBtn}
+        >
+          <Ionicons
+            name={fav ? 'heart' : 'heart-outline'}
+            size={20}
+            color={fav ? colors.error : colors.textTertiary}
+          />
+        </Pressable>
+      </View>
+
+      <Text style={[styles.address, { color: colors.textSecondary }]} numberOfLines={2}>
+        {pharmacy.address}
+      </Text>
+
+      <View style={styles.footer}>
+        <View style={styles.meta}>
+          {displayShift ? (
+            <View
+              style={[
+                styles.badge,
+                { backgroundColor: getBadgeColors(displayShift).bg },
+              ]}
+            >
+              <Text style={[styles.badgeText, { color: getBadgeColors(displayShift).text }]}>
+                {shiftLabel(displayShift)}
+              </Text>
+            </View>
+          ) : null}
+          {displayDistance != null ? (
+            <View style={[styles.distanceBadge, { backgroundColor: colors.primaryLight }]}>
+              <Ionicons name="location-outline" size={12} color={colors.primary} />
+              <Text style={[styles.distanceText, { color: colors.primary }]}>
                 {displayDistance < 1000
                   ? `${Math.round(displayDistance)}m`
                   : `${(displayDistance / 1000).toFixed(1)}km`}
               </Text>
-            ) : null}
-          </View>
+            </View>
+          ) : null}
         </View>
-        <Pressable onPress={() => toggle(pharmacy.id)} hitSlop={12}>
-          <Ionicons
-            name={fav ? 'heart' : 'heart-outline'}
-            size={22}
-            color={fav ? colors.error : colors.textTertiary}
-          />
-        </Pressable>
+        {pharmacy.phone ? (
+          <Text style={[styles.phone, { color: colors.textTertiary }]}>
+            {pharmacy.phone}
+          </Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -89,23 +108,68 @@ export function PharmacyCard({ pharmacy, distance, shift }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 16,
-    marginHorizontal: 16,
+    marginHorizontal: 20,
     marginVertical: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 1,
+    borderWidth: 1,
   },
-  row: { flexDirection: 'row', alignItems: 'flex-start' },
-  info: { flex: 1, marginRight: 10 },
-  name: { fontSize: 17, fontWeight: '600', marginBottom: 4 },
-  address: { fontSize: 14, lineHeight: 20, marginBottom: 8 },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  metaText: { fontSize: 12 },
-  badge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
-  badgeText: { fontSize: 11, fontWeight: '600', color: '#fff' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  name: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+    marginRight: 12,
+    letterSpacing: -0.3,
+  },
+  favoriteBtn: {
+    padding: 4,
+  },
+  address: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 12,
+    letterSpacing: -0.1,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  meta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    gap: 4,
+  },
+  distanceText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  phone: {
+    fontSize: 13,
+    letterSpacing: -0.1,
+  },
 });

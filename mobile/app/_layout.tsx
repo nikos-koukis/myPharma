@@ -34,7 +34,15 @@ function InnerLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="pharmacy/[id]"
-          options={{ title: 'Pharmacy', headerBackTitle: 'Back' }}
+          options={{ title: 'Φαρμακείο', headerBackTitle: 'Πίσω' }}
+        />
+        <Stack.Screen
+          name="location-picker"
+          options={{
+            title: 'Επιλογή Περιοχής',
+            headerBackTitle: 'Πίσω',
+            presentation: 'modal',
+          }}
         />
       </Stack>
     </>

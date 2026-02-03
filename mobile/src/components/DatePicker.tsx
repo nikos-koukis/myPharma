@@ -1,35 +1,16 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { format, addDays, parseISO } from 'date-fns';
 import { useTheme } from '../theme/ThemeProvider';
-import { useAppStore } from '../store';
 
 export function DatePicker() {
   const { colors } = useTheme();
-  const selectedDate = useAppStore((s) => s.selectedDate);
-  const setSelectedDate = useAppStore((s) => s.setSelectedDate);
-  const date = parseISO(selectedDate);
-
-  const prev = () => setSelectedDate(format(addDays(date, -1), 'yyyy-MM-dd'));
-  const next = () => setSelectedDate(format(addDays(date, 1), 'yyyy-MM-dd'));
-  const today = () => setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
-
-  const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd');
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surfaceSecondary }]}>
-      <Pressable onPress={prev} hitSlop={10}>
-        <Ionicons name="chevron-back" size={22} color={colors.primary} />
-      </Pressable>
-      <Pressable onPress={today}>
-        <Text style={[styles.date, { color: colors.text }]}>
-          {isToday ? 'Today' : format(date, 'EEE, dd MMM')}
-        </Text>
-      </Pressable>
-      <Pressable onPress={next} hitSlop={10}>
-        <Ionicons name="chevron-forward" size={22} color={colors.primary} />
-      </Pressable>
+    <View style={[styles.container, { backgroundColor: colors.primaryLight }]}>
+      <Ionicons name="calendar" size={18} color={colors.primary} />
+      <Text style={[styles.date, { color: colors.primary }]}>Σήμερα</Text>
+      <View style={[styles.dot, { backgroundColor: colors.primary }]} />
     </View>
   );
 }
@@ -38,12 +19,22 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginVertical: 8,
-    paddingHorizontal: 20,
+    justifyContent: 'center',
+    marginHorizontal: 20,
+    marginVertical: 12,
     paddingVertical: 12,
-    borderRadius: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 8,
   },
-  date: { fontSize: 16, fontWeight: '600' },
+  date: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
 });

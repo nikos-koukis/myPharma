@@ -9,52 +9,84 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.background },
+        headerStyle: {
+          backgroundColor: colors.background,
+        },
         headerTintColor: colors.text,
         headerShadowVisible: false,
-        headerTitleStyle: { fontSize: 17, fontWeight: '600' as const },
+        headerTitleStyle: {
+          fontSize: 18,
+          fontWeight: '700' as const,
+          letterSpacing: -0.5,
+        },
         tabBarStyle: {
           backgroundColor: colors.tabBar,
           borderTopWidth: 0,
           elevation: 0,
+          height: 88,
+          paddingTop: 8,
+          paddingBottom: 28,
         },
         tabBarActiveTintColor: colors.iconActive,
         tabBarInactiveTintColor: colors.icon,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '500' as const,
+          letterSpacing: -0.2,
+          marginTop: 4,
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'On Duty',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="medical" size={size} color={color} />
+          title: 'Εφημερίες',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'medical' : 'medical-outline'}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />
       <Tabs.Screen
         name="nearby"
         options={{
-          title: 'Nearby',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="location" size={size} color={color} />
+          title: 'Κοντινά',
+          headerShown: false,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'location' : 'location-outline'}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />
       <Tabs.Screen
         name="search"
         options={{
-          title: 'Search',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search" size={size} color={color} />
+          title: 'Αναζήτηση',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'search' : 'search-outline'}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
+          title: 'Ρυθμίσεις',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'cog' : 'cog-outline'}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />

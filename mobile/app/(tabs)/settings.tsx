@@ -14,105 +14,168 @@ export default function SettingsScreen() {
   const { history, clear: clearHistory } = useSearchHistory();
 
   const themeOptions = [
-    { value: 'system' as const, label: 'System', icon: 'phone-portrait-outline' as const },
-    { value: 'light' as const, label: 'Light', icon: 'sunny-outline' as const },
-    { value: 'dark' as const, label: 'Dark', icon: 'moon-outline' as const },
+    { value: 'system' as const, label: 'Αυτόματο', icon: 'phone-portrait-outline' as const },
+    { value: 'light' as const, label: 'Φωτεινό', icon: 'sunny-outline' as const },
+    { value: 'dark' as const, label: 'Σκοτεινό', icon: 'moon-outline' as const },
   ];
 
   const confirmClearFavorites = () =>
-    Alert.alert('Clear Favorites', `Remove all ${favIds.length} favorites?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: clearFavorites },
+    Alert.alert('Διαγραφή Αγαπημένων', `Διαγραφή ${favIds.length} αγαπημένων;`, [
+      { text: 'Άκυρο', style: 'cancel' },
+      { text: 'Διαγραφή', style: 'destructive', onPress: clearFavorites },
     ]);
 
   const confirmClearHistory = () =>
-    Alert.alert('Clear Search History', `Remove all ${history.length} entries?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: clearHistory },
+    Alert.alert('Διαγραφή Ιστορικού', `Διαγραφή ${history.length} αναζητήσεων;`, [
+      { text: 'Άκυρο', style: 'cancel' },
+      { text: 'Διαγραφή', style: 'destructive', onPress: clearHistory },
     ]);
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Appearance</Text>
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        {themeOptions.map((opt) => (
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ΕΜΦΑΝΙΣΗ</Text>
+      <View style={[styles.card, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
+        {themeOptions.map((opt, index) => (
           <Pressable
             key={opt.value}
             onPress={() => setThemePreference(opt.value)}
-            style={[styles.row, { borderBottomColor: colors.border }]}
+            style={({ pressed }) => [
+              styles.row,
+              index < themeOptions.length - 1 && {
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border,
+              },
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
           >
-            <Ionicons name={opt.icon} size={20} color={colors.text} />
+            <View style={[styles.iconContainer, { backgroundColor: colors.background }]}>
+              <Ionicons name={opt.icon} size={18} color={colors.textSecondary} />
+            </View>
             <Text style={[styles.rowLabel, { color: colors.text }]}>{opt.label}</Text>
             {themePreference === opt.value ? (
-              <Ionicons name="checkmark" size={20} color={colors.primary} />
-            ) : null}
+              <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+            ) : (
+              <View style={[styles.radioOuter, { borderColor: colors.border }]} />
+            )}
           </Pressable>
         ))}
       </View>
 
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Data</Text>
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ΔΕΔΟΜΕΝΑ</Text>
+      <View style={[styles.card, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
         <Pressable
           onPress={confirmClearFavorites}
           disabled={!favIds.length}
-          style={[styles.row, { borderBottomColor: colors.border }]}
+          style={({ pressed }) => [
+            styles.row,
+            {
+              borderBottomWidth: 1,
+              borderBottomColor: colors.border,
+              opacity: !favIds.length ? 0.5 : pressed ? 0.7 : 1,
+            },
+          ]}
         >
-          <Ionicons name="heart-outline" size={20} color={colors.text} />
-          <Text style={[styles.rowLabel, { color: colors.text }]}>
-            Clear Favorites ({favIds.length})
-          </Text>
+          <View style={[styles.iconContainer, { backgroundColor: colors.errorLight }]}>
+            <Ionicons name="heart-outline" size={18} color={colors.error} />
+          </View>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>Διαγραφή Αγαπημένων</Text>
+          <View style={[styles.badge, { backgroundColor: colors.background }]}>
+            <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{favIds.length}</Text>
+          </View>
         </Pressable>
         <Pressable
           onPress={confirmClearHistory}
           disabled={!history.length}
-          style={styles.row}
+          style={({ pressed }) => [
+            styles.row,
+            { opacity: !history.length ? 0.5 : pressed ? 0.7 : 1 },
+          ]}
         >
-          <Ionicons name="time-outline" size={20} color={colors.text} />
-          <Text style={[styles.rowLabel, { color: colors.text }]}>
-            Clear Search History ({history.length})
-          </Text>
+          <View style={[styles.iconContainer, { backgroundColor: colors.warningLight }]}>
+            <Ionicons name="time-outline" size={18} color={colors.warning} />
+          </View>
+          <Text style={[styles.rowLabel, { color: colors.text }]}>Διαγραφή Ιστορικού</Text>
+          <View style={[styles.badge, { backgroundColor: colors.background }]}>
+            <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{history.length}</Text>
+          </View>
         </Pressable>
       </View>
 
-      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>About</Text>
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ΣΧΕΤΙΚΑ</Text>
+      <View style={[styles.card, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}>
         <View style={styles.row}>
+          <View style={[styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
+            <Ionicons name="medical" size={18} color={colors.primary} />
+          </View>
           <Text style={[styles.rowLabel, { color: colors.text }]}>myPharma</Text>
-          <Text style={{ color: colors.textTertiary }}>v1.0.0</Text>
+          <Text style={[styles.version, { color: colors.textTertiary }]}>v1.0.0</Text>
         </View>
       </View>
 
-      <View style={{ height: 40 }} />
+      <View style={{ height: 48 }} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 8 },
+  container: {
+    flex: 1,
+    paddingTop: 8,
+  },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     paddingHorizontal: 20,
-    marginTop: 28,
-    marginBottom: 8,
+    marginTop: 32,
+    marginBottom: 12,
+    letterSpacing: 0.5,
   },
   card: {
-    marginHorizontal: 16,
-    borderRadius: 14,
+    marginHorizontal: 20,
+    borderRadius: 16,
+    borderWidth: 1,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 1,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 14,
   },
-  rowLabel: { flex: 1, fontSize: 15 },
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowLabel: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: -0.2,
+  },
+  radioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  badgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  version: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
 });

@@ -13,8 +13,10 @@ export function EmptyState({ icon = 'medical-outline', title, subtitle }: Props)
   const { colors } = useTheme();
   return (
     <View style={styles.container}>
-      <Ionicons name={icon} size={48} color={colors.textTertiary} />
-      <Text style={[styles.title, { color: colors.textSecondary }]}>{title}</Text>
+      <View style={[styles.iconContainer, { backgroundColor: colors.surfaceSecondary }]}>
+        <Ionicons name={icon} size={32} color={colors.textTertiary} />
+      </View>
+      <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
       {subtitle ? (
         <Text style={[styles.subtitle, { color: colors.textTertiary }]}>{subtitle}</Text>
       ) : null}
@@ -23,7 +25,32 @@ export function EmptyState({ icon = 'medical-outline', title, subtitle }: Props)
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  title: { fontSize: 18, fontWeight: '600', marginTop: 16, textAlign: 'center' },
-  subtitle: { fontSize: 15, lineHeight: 22, marginTop: 6, textAlign: 'center' },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  iconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: '600',
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 8,
+    textAlign: 'center',
+    letterSpacing: -0.2,
+    maxWidth: 280,
+  },
 });

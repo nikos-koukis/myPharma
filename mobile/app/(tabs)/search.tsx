@@ -33,11 +33,19 @@ export default function SearchScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.searchBar, { backgroundColor: colors.surfaceSecondary }]}>
-        <Ionicons name="search" size={18} color={colors.textTertiary} />
+      <View
+        style={[
+          styles.searchBar,
+          {
+            backgroundColor: colors.surfaceSecondary,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <Ionicons name="search-outline" size={20} color={colors.textTertiary} />
         <TextInput
           style={[styles.input, { color: colors.text }]}
-          placeholder="Search pharmacies..."
+          placeholder="Αναζήτηση φαρμακείου..."
           placeholderTextColor={colors.textTertiary}
           value={query}
           onChangeText={setQuery}
@@ -46,8 +54,12 @@ export default function SearchScreen() {
           autoCorrect={false}
         />
         {query ? (
-          <Pressable onPress={() => setQuery('')} hitSlop={10}>
-            <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
+          <Pressable
+            onPress={() => setQuery('')}
+            hitSlop={12}
+            style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+          >
+            <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
           </Pressable>
         ) : null}
       </View>
@@ -55,9 +67,14 @@ export default function SearchScreen() {
       {!query.trim() && history.length > 0 ? (
         <View style={styles.historySection}>
           <View style={styles.historyHeader}>
-            <Text style={[styles.historyTitle, { color: colors.textSecondary }]}>Recent</Text>
-            <Pressable onPress={clear}>
-              <Text style={{ color: colors.primary, fontSize: 13 }}>Clear</Text>
+            <Text style={[styles.historyTitle, { color: colors.textTertiary }]}>
+              ΠΡΟΣΦΑΤΕΣ ΑΝΑΖΗΤΗΣΕΙΣ
+            </Text>
+            <Pressable
+              onPress={clear}
+              style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+            >
+              <Text style={[styles.clearBtn, { color: colors.primary }]}>Καθαρισμός</Text>
             </Pressable>
           </View>
           <View style={styles.historyChips}>
@@ -68,9 +85,17 @@ export default function SearchScreen() {
                   setQuery(h);
                   add(h);
                 }}
-                style={[styles.historyChip, { backgroundColor: colors.surfaceSecondary }]}
+                style={({ pressed }) => [
+                  styles.historyChip,
+                  {
+                    backgroundColor: colors.surfaceSecondary,
+                    borderColor: colors.border,
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
               >
-                <Text style={{ color: colors.text, fontSize: 13 }}>{h}</Text>
+                <Ionicons name="time-outline" size={14} color={colors.textTertiary} />
+                <Text style={[styles.historyText, { color: colors.text }]}>{h}</Text>
               </Pressable>
             ))}
           </View>
@@ -78,7 +103,11 @@ export default function SearchScreen() {
       ) : null}
 
       {query.trim() && !filtered.length ? (
-        <EmptyState icon="search-outline" title="No results" subtitle={`Nothing matched "${query}"`} />
+        <EmptyState
+          icon="search-outline"
+          title="Χωρίς αποτελέσματα"
+          subtitle={`Δεν βρέθηκε "${query}"`}
+        />
       ) : (
         <FlatList
           data={filtered}
@@ -87,6 +116,13 @@ export default function SearchScreen() {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={
+            filtered.length > 0 ? (
+              <Text style={[styles.resultCount, { color: colors.textTertiary }]}>
+                {filtered.length} {filtered.length === 1 ? 'αποτέλεσμα' : 'αποτελέσματα'}
+              </Text>
+            ) : null
+          }
         />
       )}
     </View>
@@ -94,25 +130,70 @@ export default function SearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    margin: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 14,
+    marginHorizontal: 20,
+    marginVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    padding: 0,
+    letterSpacing: -0.2,
+  },
+  historySection: {
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  historyTitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.5,
+  },
+  clearBtn: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  historyChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
-  input: { flex: 1, fontSize: 15, padding: 0 },
-  historySection: { paddingHorizontal: 16, marginBottom: 8 },
-  historyHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  historyTitle: { fontSize: 13, fontWeight: '500' },
-  historyChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   historyChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 6,
   },
-  list: { paddingBottom: 24 },
+  historyText: {
+    fontSize: 14,
+    letterSpacing: -0.2,
+  },
+  list: {
+    paddingBottom: 32,
+  },
+  resultCount: {
+    fontSize: 13,
+    fontWeight: '500',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
 });
