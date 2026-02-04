@@ -82,7 +82,7 @@ export default function PharmacyDetailScreen() {
       />
 
       {/* Hero Map (Layer 0) */}
-      <View style={[styles.heroMapContainer, { height: HEADER_HEIGHT }]}>
+      <View style={[styles.heroMapContainer, { height: '100%' }]}>
         {pharmacy.lat && pharmacy.lng ? (
           <MapView
             style={StyleSheet.absoluteFill}
@@ -111,14 +111,14 @@ export default function PharmacyDetailScreen() {
         {/* Gradient Overlay for seamless blending */}
         <LinearGradient
           colors={isDark ? ['transparent', '#020617'] : ['transparent', '#F0FDF4']}
-          style={[styles.mapGradient, { height: 180, bottom: 0 }]}
+          style={[styles.mapGradient, { height: 300, bottom: 0 }]}
           pointerEvents="none"
         />
       </View>
 
       {/* Main Content (Layer 1 - ScrollView) */}
       <ScrollView
-        contentContainerStyle={[styles.contentContainer, { paddingTop: HEADER_HEIGHT - 80 }]}
+        contentContainerStyle={[styles.contentContainer, { paddingTop: Dimensions.get('window').height * 0.55 }]}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
