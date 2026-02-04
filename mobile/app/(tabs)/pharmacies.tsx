@@ -247,10 +247,11 @@ export default function OnDutyScreen() {
         <FlatList
           data={filteredData}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <PharmacyCard
               pharmacy={item}
               distance={item.distance_meters}
+              isClosest={index === 0}
             />
           )}
           refreshing={isRefetching}

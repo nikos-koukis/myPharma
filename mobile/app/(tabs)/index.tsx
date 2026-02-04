@@ -256,6 +256,13 @@ export default function MapScreen() {
                 resizeMode="contain"
               />
               <View style={styles.pharmacyInfo}>
+                {selectedPharmacy.id === filteredData[0]?.id && (
+                  <View style={[styles.closestBadge, { backgroundColor: colors.successLight }]}>
+                    <Text style={[styles.closestBadgeText, { color: colors.success }]}>
+                      🟢 Κοντινότερο εφημερεύον
+                    </Text>
+                  </View>
+                )}
                 <Text style={[styles.pharmacyName, { color: colors.text }]} numberOfLines={1}>
                   {selectedPharmacy.name}
                 </Text>
@@ -338,7 +345,7 @@ export default function MapScreen() {
                   return (
                     <>
                       <View style={[styles.statusDot, { backgroundColor: colors[status.statusColor] }]} />
-                      <Text style={[styles.statusText, { color: colors.textSecondary }]}>
+                      <Text style={[styles.statusText, { color: colors[status.statusColor] }]}>
                         {status.statusText}
                       </Text>
                     </>
@@ -368,7 +375,7 @@ export default function MapScreen() {
                 ]}
                 onPress={() => setSelectedPharmacy(null)}
               >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Ακύρωση</Text>
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Άλλο κοντινό</Text>
               </Pressable>
             </View>
           </BlurView>
@@ -620,5 +627,17 @@ const styles = StyleSheet.create({
   pharmacyHeaderImage: {
     width: 44,
     height: 44,
+  },
+  closestBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  closestBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
 });

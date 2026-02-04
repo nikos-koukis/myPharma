@@ -11,11 +11,12 @@ import type { Pharmacy, NearbyPharmacy, DutySlot } from '../types';
 interface Props {
   pharmacy: Pharmacy | NearbyPharmacy;
   distance?: number;
+  isClosest?: boolean;
 }
 
 import { BlurView } from 'expo-blur';
 
-export function PharmacyCard({ pharmacy, distance }: Props) {
+export function PharmacyCard({ pharmacy, distance, isClosest }: Props) {
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const { isFavorite, toggle } = useFavorites();
@@ -42,9 +43,7 @@ export function PharmacyCard({ pharmacy, distance }: Props) {
   const status = usePharmacyStatus(dutySlots);
 
   // Get status bar color
-  const statusBarColor = status.isOpen
-    ? (status.statusColor === 'warning' ? colors.warning : colors.success)
-    : colors.error;
+  const statusBarColor = colors[status.statusColor];
 
   // Format duty hours for display
   const dutyHoursInfo = useMemo(() => {
@@ -86,13 +85,20 @@ export function PharmacyCard({ pharmacy, distance }: Props) {
             <PharmacyIcon size={20} color={colors.primary} />
           </View>
           <View style={styles.headerInfo}>
+            {isClosest && (
+              <View style={[styles.closestBadge, { backgroundColor: colors.successLight }]}>
+                <Text style={[styles.closestBadgeText, { color: colors.success }]}>
+                  🟢 Κοντινότερο εφημερεύον
+                </Text>
+              </View>
+            )}
             <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
               {pharmacy.name}
             </Text>
             {/* Status Badge */}
             <View style={[
               styles.statusBadge,
-              { backgroundColor: status.isOpen ? colors.successLight : colors.errorLight }
+              { backgroundColor: colors[`${status.statusColor}Light` as keyof typeof colors] || colors.surfaceSecondary }
             ]}>
               <View style={[
                 styles.statusDot,
@@ -102,7 +108,7 @@ export function PharmacyCard({ pharmacy, distance }: Props) {
                 styles.statusText,
                 { color: statusBarColor }
               ]}>
-                {status.isOpen ? 'ΑΝΟΙΧΤΟ' : 'ΚΛΕΙΣΤΟ'}
+                {status.statusText.toUpperCase()}
               </Text>
             </View>
           </View>
@@ -255,5 +261,17 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 11,
     fontWeight: '500',
+  },
+  closestBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 2,
+  },
+  closestBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
 });

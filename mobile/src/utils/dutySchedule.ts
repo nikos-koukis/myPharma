@@ -224,15 +224,22 @@ export function getPharmacyStatus(duties: DutySlot[]): {
       minutesUntilClose = end - current;
     }
 
-    // Warning if closing within 30 minutes
-    const isClosingSoon = minutesUntilClose <= 30;
+    // Dynamic status based on time until closing
+    let statusColor: 'success' | 'warning' | 'error' = 'success';
+    let statusText = `Ανοιχτό μέχρι ${currentSlot.end}`;
+
+    if (minutesUntilClose <= 5) {
+      statusColor = 'error';
+      statusText = `Κλείνει σε ${minutesUntilClose}'`;
+    } else if (minutesUntilClose <= 20) {
+      statusColor = 'warning';
+      statusText = `Ανοιχτό μέχρι ${currentSlot.end}`;
+    }
 
     return {
       isOpen: true,
-      statusText: isClosingSoon
-        ? `Κλείνει σε ${formatTimeUntil(minutesUntilClose)}`
-        : `Ανοιχτό μέχρι ${currentSlot.end}`,
-      statusColor: isClosingSoon ? 'warning' : 'success',
+      statusText,
+      statusColor,
       currentSlot,
       nextOpening: null,
     };
