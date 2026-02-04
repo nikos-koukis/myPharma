@@ -6,7 +6,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: 'mypharma',
   version: '1.0.0',
   orientation: 'portrait',
-  icon: './assets/main_logo.png',
+  icon: './assets/appiconph.png',
   userInterfaceStyle: 'automatic',
   newArchEnabled: true,
   scheme: 'mypharma',
@@ -24,7 +24,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     adaptiveIcon: {
-      foregroundImage: './assets/adaptive-icon.png',
+      foregroundImage: './assets/appiconph.png',
       backgroundColor: '#ffffff',
     },
     edgeToEdgeEnabled: true,
