@@ -13,8 +13,10 @@ interface Props {
   distance?: number;
 }
 
+import { BlurView } from 'expo-blur';
+
 export function PharmacyCard({ pharmacy, distance }: Props) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const { isFavorite, toggle } = useFavorites();
   const fav = isFavorite(pharmacy.id);
@@ -61,14 +63,19 @@ export function PharmacyCard({ pharmacy, distance }: Props) {
       style={({ pressed }) => [
         styles.card,
         {
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-          opacity: pressed ? 0.8 : 1,
+          borderColor: colors.glassBorder,
           transform: [{ scale: pressed ? 0.98 : 1 }],
+          backgroundColor: 'transparent', // Important for blur
         },
       ]}
       onPress={() => router.push(`/pharmacy/${pharmacy.id}`)}
     >
+      <BlurView
+        intensity={50}
+        tint={isDark ? 'dark' : 'light'}
+        style={StyleSheet.absoluteFill}
+      />
+
       {/* Status Indicator Bar */}
       <View style={[styles.statusBar, { backgroundColor: statusBarColor }]} />
 

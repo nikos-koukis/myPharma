@@ -6,9 +6,9 @@ export const lightColors = {
   surfaceElevated: '#FFFFFF',
 
   // Text - refined hierarchy
-  text: '#1A1D21',
-  textSecondary: '#6B7280',
-  textTertiary: '#9CA3AF',
+  text: '#111827', // Deep slate/black
+  textSecondary: '#374151', // Dark grey
+  textTertiary: '#4B5563', // Medium grey (was too light)
 
   // Brand colors - sage/mint green (hsl 166, 18%, 73%)
   primary: '#A8C5BE',
@@ -39,10 +39,14 @@ export const lightColors = {
   card: '#FFFFFF',
   cardHover: '#FAFAFA',
 
+  // Glassmorphism (light mode - minimal effect)
+  glass: 'rgba(255, 255, 255, 0.8)',
+  glassBorder: 'rgba(0, 0, 0, 0.06)',
+
   // Navigation
   tabBar: '#FFFFFF',
   tabBarBorder: 'transparent',
-  icon: '#9CA3AF',
+  icon: '#4B5563',
   iconActive: '#7BA399',
 
   // Duty badges
@@ -56,66 +60,72 @@ export const lightColors = {
   // Map marker
   marker: '#A8C5BE',
   markerBorder: '#7BA399',
+  markerGlow: 'rgba(168, 197, 190, 0.4)',
 };
 
 export const darkColors: typeof lightColors = {
-  // Backgrounds - deep blue-tinted dark (from CSS oklch values)
-  background: '#161A22',
-  surface: '#1E2430',
-  surfaceSecondary: '#252D3A',
-  surfaceElevated: '#2A3444',
+  // Backgrounds - deep dark for glass contrast
+  background: '#0A0F14',
+  surface: '#111920',
+  surfaceSecondary: '#1A232D',
+  surfaceElevated: '#202A36',
 
   // Text - clear hierarchy
   text: '#E8EAF0',
   textSecondary: '#9CA3AF',
   textTertiary: '#6B7280',
 
-  // Brand colors - sage/mint (same hue, works well on dark)
-  primary: '#A8C5BE',
-  primaryDark: '#8FB3AA',
-  primaryLight: '#2A3D38',
-  primaryMuted: '#354945',
+  // Brand colors - SOFT MINT GREEN
+  primary: '#BFDFD2',
+  primaryDark: '#9FCFBE',
+  primaryLight: 'rgba(191, 223, 210, 0.15)',
+  primaryMuted: 'rgba(191, 223, 210, 0.25)',
 
   // Semantic colors
-  accent: '#A8C5BE',
-  accentLight: '#2A3D38',
-  success: '#4ADE80',
-  successLight: '#14532D',
-  error: '#F87171',
-  errorLight: '#450A0A',
-  warning: '#FBBF24',
-  warningLight: '#451A03',
+  accent: '#BFDFD2',
+  accentLight: 'rgba(191, 223, 210, 0.15)',
+  success: '#BFDFD2',
+  successLight: 'rgba(191, 223, 210, 0.15)',
+  error: '#FF4757',
+  errorLight: 'rgba(255, 71, 87, 0.15)',
+  warning: '#FFD93D',
+  warningLight: 'rgba(255, 217, 61, 0.15)',
 
   // Open status badge
-  open: '#4ADE80',
-  openLight: '#14532D',
+  open: '#BFDFD2',
+  openLight: 'rgba(191, 223, 210, 0.15)',
 
-  // Borders & dividers
-  border: '#2E3744',
-  borderSecondary: '#3A4454',
-  shadow: 'rgba(0,0,0,0.4)',
+  // Borders & dividers - subtle glass borders
+  border: 'rgba(255, 255, 255, 0.08)',
+  borderSecondary: 'rgba(255, 255, 255, 0.12)',
+  shadow: 'rgba(0, 0, 0, 0.6)',
 
-  // Cards & surfaces
-  card: '#1E2430',
-  cardHover: '#252D3A',
+  // Cards & surfaces - glass effect
+  card: 'rgba(20, 30, 40, 0.8)',
+  cardHover: 'rgba(30, 40, 55, 0.9)',
+
+  // Glassmorphism
+  glass: 'rgba(20, 30, 45, 0.7)',
+  glassBorder: 'rgba(255, 255, 255, 0.1)',
 
   // Navigation
-  tabBar: '#161A22',
+  tabBar: 'rgba(10, 15, 20, 0.95)',
   tabBarBorder: 'transparent',
   icon: '#6B7280',
-  iconActive: '#A8C5BE',
+  iconActive: '#BFDFD2',
 
   // Duty badges
-  dutyMorning: '#FBBF24',
-  dutyMorningLight: '#451A03',
+  dutyMorning: '#FFD93D',
+  dutyMorningLight: 'rgba(255, 217, 61, 0.15)',
   dutyNight: '#A78BFA',
-  dutyNightLight: '#2E1065',
-  dutyAllDay: '#4ADE80',
-  dutyAllDayLight: '#14532D',
+  dutyNightLight: 'rgba(167, 139, 250, 0.15)',
+  dutyAllDay: '#BFDFD2',
+  dutyAllDayLight: 'rgba(191, 223, 210, 0.15)',
 
-  // Map marker
-  marker: '#A8C5BE',
-  markerBorder: '#8FB3AA',
+  // Map marker - soft glow
+  marker: '#BFDFD2',
+  markerBorder: '#9FCFBE',
+  markerGlow: 'rgba(191, 223, 210, 0.5)',
 };
 
 export type Colors = typeof lightColors;

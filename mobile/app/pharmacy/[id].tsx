@@ -1,11 +1,13 @@
 import React, { useMemo, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Animated } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { View, Text, StyleSheet, ScrollView, Pressable, Animated, Dimensions, Image } from 'react-native';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { PharmacyIcon } from '../../src/components/PharmacyIcon';
 import MapView, { Marker } from 'react-native-maps';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { useAppStore } from '../../src/store';
 import { usePharmacyDetail } from '../../src/hooks/usePharmacies';
@@ -16,254 +18,216 @@ import { EmptyState } from '../../src/components/EmptyState';
 import { callPhone, openDirections, sharePharmacy } from '../../src/utils/linking';
 import { calculateDistance, formatDistance } from '../../src/utils/distance';
 
+const HEADER_HEIGHT = 420;
+
 export default function PharmacyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors, isDark } = useTheme();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { data: pharmacy, isLoading } = usePharmacyDetail(id);
   const userLocation = useAppStore((s) => s.userLocation);
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   // Animated pulse for status dot
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Get all duty slots from today's duty record
+  // Get all duty slots
   const dutySlots = useMemo(() =>
     pharmacy?.duties?.[0]?.duties ?? [],
     [pharmacy?.duties]
   );
 
-  // Get real-time status (updates every minute)
+  // Real-time status
   const status = usePharmacyStatus(dutySlots);
 
   // Pulse animation for open status
   useEffect(() => {
     if (status.isOpen) {
-      const pulse = Animated.loop(
+      Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.3,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
+          Animated.timing(pulseAnim, { toValue: 1.4, duration: 1200, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
         ])
-      );
-      pulse.start();
-      return () => pulse.stop();
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
     }
-  }, [status.isOpen, pulseAnim]);
+  }, [status.isOpen]);
 
-  // Calculate distance from user
+  // Calculate distance
   const distance = useMemo(() => {
     if (!userLocation || !pharmacy?.lat || !pharmacy?.lng) return null;
-    return calculateDistance(
-      userLocation.lat,
-      userLocation.lng,
-      pharmacy.lat,
-      pharmacy.lng
-    );
-  }, [userLocation, pharmacy?.lat, pharmacy?.lng]);
+    return calculateDistance(userLocation.lat, userLocation.lng, pharmacy.lat, pharmacy.lng);
+  }, [userLocation, pharmacy]);
 
   if (isLoading) return <LoadingState />;
   if (!pharmacy) return <EmptyState title="Δεν βρέθηκε το φαρμακείο" />;
 
-  // Format all duty hours for display
-  const formatDutyHours = () => {
-    if (dutySlots.length === 0) return 'Εφημερεύει όλη μέρα';
-    return dutySlots.map((slot) => {
-      const extendsToNextDay = parseInt(slot.end.split(':')[0], 10) < parseInt(slot.start.split(':')[0], 10);
-      return `${slot.start} - ${slot.end}${extendsToNextDay ? ' (Επόμενης)' : ''}`;
-    }).join('\n');
-  };
-
-  // Status badge color
+  // Status Colors
   const statusColor = status.isOpen
     ? (status.statusColor === 'warning' ? colors.warning : colors.success)
     : colors.error;
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Map snippet */}
-      {pharmacy.lat && pharmacy.lng ? (
-        <View style={styles.mapContainer}>
+    <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* Dynamic Background */}
+      <LinearGradient
+        colors={isDark ? ['#020617', '#0F172A'] : ['#F0FDF4', '#FFFFFF']}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+      />
+
+      {/* Hero Map (Layer 0) */}
+      <View style={[styles.heroMapContainer, { height: HEADER_HEIGHT }]}>
+        {pharmacy.lat && pharmacy.lng ? (
           <MapView
-            style={styles.map}
+            style={StyleSheet.absoluteFill}
             initialRegion={{
               latitude: pharmacy.lat,
               longitude: pharmacy.lng,
-              latitudeDelta: 0.005,
-              longitudeDelta: 0.005,
+              latitudeDelta: 0.003,
+              longitudeDelta: 0.003,
             }}
             scrollEnabled={false}
             zoomEnabled={false}
+            pitchEnabled={false}
+            rotateEnabled={false}
             userInterfaceStyle={isDark ? 'dark' : 'light'}
           >
-            <Marker
-              coordinate={{ latitude: pharmacy.lat, longitude: pharmacy.lng }}
-            />
+            <Marker coordinate={{ latitude: pharmacy.lat, longitude: pharmacy.lng }}>
+              <Image
+                source={require('../../assets/pin.png')}
+                style={{ width: 44, height: 44 }}
+                resizeMode="contain"
+              />
+            </Marker>
           </MapView>
-          {/* Status overlay on map */}
-          <View style={styles.mapOverlay}>
-            <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={styles.blurBadge}>
-              <View style={[styles.mapStatusBadge, { backgroundColor: statusColor + '20' }]}>
-                <Animated.View
-                  style={[
-                    styles.statusDot,
-                    { backgroundColor: statusColor, transform: [{ scale: pulseAnim }] }
-                  ]}
-                />
-                <Text style={[styles.mapStatusText, { color: statusColor }]}>{status.statusText}</Text>
-              </View>
-            </BlurView>
-          </View>
-        </View>
-      ) : null}
+        ) : null}
 
-      <View style={styles.content}>
-        {/* Header Card */}
-        <View style={[styles.headerCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.headerTop}>
-            <View style={[styles.pharmacyIcon, { backgroundColor: colors.primaryLight }]}>
-              <PharmacyIcon size={26} color={colors.primary} />
-            </View>
-            <View style={styles.headerInfo}>
-              <Text style={[styles.name, { color: colors.text }]}>{pharmacy.name}</Text>
-              <Text style={[styles.region, { color: colors.textTertiary }]}>
-                {pharmacy.city}, {pharmacy.region}
-              </Text>
-            </View>
-            <FavoriteButton id={pharmacy.id} />
-          </View>
-
-          {/* Address */}
-          <View style={[styles.infoRow, { borderTopColor: colors.border }]}>
-            <View style={[styles.infoIcon, { backgroundColor: colors.surfaceSecondary }]}>
-              <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-            </View>
-            <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-              {pharmacy.address}
-            </Text>
-          </View>
-
-          {/* Distance */}
-          {distance !== null ? (
-            <View style={styles.infoRow}>
-              <View style={[styles.infoIcon, { backgroundColor: colors.primaryLight }]}>
-                <Ionicons name="navigate-outline" size={16} color={colors.primary} />
-              </View>
-              <Text style={[styles.infoText, { color: colors.primary, fontWeight: '600' }]}>
-                {formatDistance(distance)}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* Phone */}
-          {pharmacy.phone ? (
-            <View style={styles.infoRow}>
-              <View style={[styles.infoIcon, { backgroundColor: colors.surfaceSecondary }]}>
-                <Ionicons name="call-outline" size={16} color={colors.textSecondary} />
-              </View>
-              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                {pharmacy.phone}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* Hours */}
-          {pharmacy.duties && pharmacy.duties.length > 0 ? (
-            <View style={styles.infoRow}>
-              <View style={[styles.infoIcon, { backgroundColor: colors.surfaceSecondary }]}>
-                <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-              </View>
-              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                {formatDutyHours()}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.actions}>
-          {pharmacy.phone ? (
-            <ActionButton
-              icon="call"
-              label="Κλήση"
-              color={colors.success}
-              onPress={() => callPhone(pharmacy.phone!)}
-            />
-          ) : null}
-          {pharmacy.lat && pharmacy.lng ? (
-            <ActionButton
-              icon="navigate"
-              label="Οδηγίες"
-              color={colors.primary}
-              onPress={() => openDirections(pharmacy.lat!, pharmacy.lng!, pharmacy.name)}
-            />
-          ) : null}
-          <ActionButton
-            icon="share-social"
-            label="Κοινοποίηση"
-            color={colors.warning}
-            onPress={() => sharePharmacy(pharmacy)}
-          />
-        </View>
+        {/* Gradient Overlay for seamless blending */}
+        <LinearGradient
+          colors={isDark ? ['transparent', '#020617'] : ['transparent', '#F0FDF4']}
+          style={[styles.mapGradient, { height: 180, bottom: 0 }]}
+          pointerEvents="none"
+        />
       </View>
 
-      <View style={{ height: 40 }} />
-    </ScrollView>
-  );
-}
+      {/* Main Content (Layer 1 - ScrollView) */}
+      <ScrollView
+        contentContainerStyle={[styles.contentContainer, { paddingTop: HEADER_HEIGHT - 80 }]}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+      >
+        {/* Main Glass Card */}
+        <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={[styles.glassCard, { borderColor: colors.glassBorder }]}>
 
-function ActionButton({
-  icon,
-  label,
-  color,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  color: string;
-  onPress: () => void;
-}) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+          {/* Header Section */}
+          <View style={styles.cardHeader}>
+            <View style={styles.titleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.name, { color: colors.text }]}>{pharmacy.name}</Text>
+                <Text style={[styles.region, { color: colors.textTertiary }]}>{pharmacy.city}, {pharmacy.region}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                <Pressable
+                  onPress={() => sharePharmacy(pharmacy)}
+                  hitSlop={8}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                >
+                  <Ionicons name="share-outline" size={26} color={colors.text} />
+                </Pressable>
+                <FavoriteButton id={pharmacy.id} />
+              </View>
+            </View>
 
-  const handlePressIn = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Animated.spring(scaleAnim, {
-      toValue: 0.9,
-      useNativeDriver: true,
-      speed: 50,
-      bounciness: 4,
-    }).start();
-  };
+            {/* Tags Row */}
+            <View style={styles.tagsRow}>
+              {distance !== null && (
+                <View style={[styles.tag, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="navigate" size={14} color={colors.primary} />
+                  <Text style={[styles.tagText, { color: colors.primary }]}>{formatDistance(distance)}</Text>
+                </View>
+              )}
+              <View style={[styles.tag, { backgroundColor: colors.surfaceSecondary }]}>
+                <Ionicons name="time" size={14} color={colors.textSecondary} />
+                <Text style={[styles.tagText, { color: colors.textSecondary }]}>
+                  {status.isOpen ? `Κλείνει στις ${dutySlots[0]?.end || '21:00'}` : 'Κλειστό'}
+                </Text>
+              </View>
+            </View>
+          </View>
 
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 50,
-      bounciness: 8,
-    }).start();
-  };
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-  return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={styles.actionBtnWrapper}
-    >
-      <Animated.View style={[styles.actionBtn, { borderColor: color, transform: [{ scale: scaleAnim }] }]}>
-        <Ionicons name={icon} size={24} color={color} />
-        <Text style={[styles.actionLabel, { color }]}>{label}</Text>
-      </Animated.View>
-    </Pressable>
+          {/* Info Section */}
+          <View style={styles.infoSection}>
+            {/* Address */}
+            <Pressable style={styles.infoRow} onPress={() => pharmacy.lat && openDirections(pharmacy.lat, pharmacy.lng!, pharmacy.name)}>
+              <View style={[styles.iconBox, { backgroundColor: colors.surfaceSecondary }]}>
+                <Ionicons name="location" size={22} color={colors.text} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>Διεύθυνση</Text>
+                <Text style={[styles.infoValue, { color: colors.text }]}>{pharmacy.address}</Text>
+              </View>
+              <View style={[styles.arrowBox, { backgroundColor: colors.surfaceSecondary }]}>
+                <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+              </View>
+            </Pressable>
+
+            {/* Phone */}
+            {pharmacy.phone && (
+              <Pressable style={styles.infoRow} onPress={() => callPhone(pharmacy.phone!)}>
+                <View style={[styles.iconBox, { backgroundColor: colors.surfaceSecondary }]}>
+                  <Ionicons name="call" size={22} color={colors.text} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>Τηλέφωνο</Text>
+                  <Text style={[styles.infoValue, { color: colors.text }]}>{pharmacy.phone}</Text>
+                </View>
+                <View style={[styles.arrowBox, { backgroundColor: colors.surfaceSecondary }]}>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+                </View>
+              </Pressable>
+            )}
+          </View>
+        </BlurView>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      {/* Floating Elements (Layer 2 - Always on top) */}
+
+      {/* Custom Back Button */}
+      <BlurView
+        intensity={50}
+        tint={isDark ? 'dark' : 'light'}
+        style={[styles.backButtonBlur, { top: insets.top + 10 }]}
+      >
+        <Pressable
+          style={styles.backButton}
+          onPress={() => router.back()}
+          hitSlop={20}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </Pressable>
+      </BlurView>
+
+      {/* Top Status Badge */}
+      <BlurView
+        intensity={70}
+        tint={isDark ? 'dark' : 'light'}
+        style={[styles.statusFloat, { top: insets.top + 10 }]}
+      >
+        <Animated.View style={[styles.statusDot, { backgroundColor: statusColor, transform: [{ scale: pulseAnim }] }]} />
+        <Text style={[styles.statusText, { color: statusColor }]}>{status.isOpen ? 'ΑΝΟΙΧΤΟ ΤΩΡΑ' : 'ΚΛΕΙΣΤΟ'}</Text>
+      </BlurView>
+    </View>
   );
 }
 
@@ -271,123 +235,160 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  mapContainer: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 24,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  map: {
+  heroMapContainer: {
     width: '100%',
-    height: 220,
-  },
-  mapOverlay: {
     position: 'absolute',
-    top: 12,
-    left: 12,
+    top: 0,
+    left: 0,
+    zIndex: 0,
   },
-  blurBadge: {
-    borderRadius: 14,
-    overflow: 'hidden',
+  mapGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
   },
-  mapStatusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  mapStatusText: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  content: {
-    padding: 16,
-    gap: 20,
-  },
-  headerCard: {
+  backButtonBlur: {
+    position: 'absolute',
+    left: 20,
     borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
+    overflow: 'hidden',
+    zIndex: 20, // High Z-Index
+    elevation: 5,
   },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 14,
-    marginBottom: 20,
-  },
-  pharmacyIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+  backButton: {
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerInfo: {
-    flex: 1,
+  statusFloat: {
+    position: 'absolute',
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    overflow: 'hidden',
+    gap: 6,
+    zIndex: 20, // High Z-Index
+    elevation: 5,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  contentContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    zIndex: 1,
+  },
+  glassCard: {
+    borderRadius: 32,
+    padding: 24,
+    borderWidth: 1,
+    overflow: 'hidden',
+    gap: 24,
+  },
+  cardHeader: {
+    gap: 16,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
   },
   name: {
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    lineHeight: 26,
-    marginBottom: 4,
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+    marginBottom: 6,
+    lineHeight: 34,
   },
   region: {
-    fontSize: 14,
-    letterSpacing: -0.1,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    gap: 6,
+  },
+  tagText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  divider: {
+    height: 1,
+    opacity: 0.5,
+  },
+  infoSection: {
+    gap: 24,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: 'transparent',
+    gap: 16,
   },
-  infoIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+  iconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  infoText: {
-    flex: 1,
-    fontSize: 15,
-    lineHeight: 22,
-    letterSpacing: -0.1,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  actionBtnWrapper: {
-    flex: 1,
-  },
-  actionBtn: {
+  arrowBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderWidth: 1.5,
-    borderRadius: 14,
-    gap: 6,
+    opacity: 0.6,
   },
-  actionLabel: {
-    fontSize: 12,
+  infoLabel: {
+    fontSize: 13,
+    marginBottom: 4,
     fontWeight: '600',
-    letterSpacing: -0.2,
+  },
+  infoValue: {
+    fontSize: 17,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+  },
+  markerContainer: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markerDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: '#FFF',
+  },
+  markerRing: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    opacity: 0.5,
   },
 });

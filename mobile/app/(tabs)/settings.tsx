@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert, ScrollView, Animated, Linking } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,12 +13,31 @@ import { useSearchHistory } from '../../src/hooks/useSearchHistory';
 const APP_VERSION = '1.0.0';
 
 export default function SettingsScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const themePreference = useAppStore((s) => s.themePreference);
   const setThemePreference = useAppStore((s) => s.setThemePreference);
   const { ids: favIds, clear: clearFavorites } = useFavorites();
   const { history, clear: clearHistory } = useSearchHistory();
+
+  // Gradient colors based on theme
+  const gradientColors = (themePreference === 'dark' || (themePreference === 'system' && isDark))
+    ? ['#0F172A', '#020617'] as [string, string]
+    : ['#E0F2E9', '#F0FDF4', '#FFFFFF'] as [string, string, string];
+
+  // Logic for theme is slightly different because it tracks preference, here relying on `isDark` from useTheme which is already resolved is safer honestly. 
+  // Let's use `colors.background` for fallback but `isDark` is cleaner.
+  const resolvedGradient = (colors.background === '#FFFFFF' || colors.background === '#F8FAFC')
+    ? ['#E0F2E9', '#F0FDF4', '#FFFFFF'] as [string, string, string]
+    : ['#0F172A', '#020617'] as [string, string];
+
+  // Actually useTheme `isDark` is the source of truth for rendering
+  const activeGradient = React.useMemo(() => { // use React.useMemo or just simple const
+    return isDark
+      ? ['#0F172A', '#020617'] as [string, string]
+      : ['#E0F2E9', '#F0FDF4', '#FFFFFF'] as [string, string, string];
+  }, [isDark]);
+
 
   const themeOptions = [
     { value: 'system' as const, label: 'Auto', icon: 'phone-portrait-outline' as const },
@@ -47,137 +67,144 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* App Header */}
-      <View style={styles.header}>
-        <View style={[styles.logoContainer, { backgroundColor: colors.primaryLight }]}>
-          <PharmacyIcon size={40} color={colors.primary} />
+    <View style={styles.container}>
+      <LinearGradient
+        colors={activeGradient}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* App Header */}
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+          <View style={[styles.logoContainer, { backgroundColor: colors.primaryLight }]}>
+            <PharmacyIcon size={40} color={colors.primary} />
+          </View>
+          <Text style={[styles.appName, { color: colors.text }]}>myPharma</Text>
+          <Text style={[styles.appTagline, { color: colors.textTertiary }]}>
+            Βρες εφημερεύοντα φαρμακεία
+          </Text>
+          <View style={[styles.versionBadge, { backgroundColor: colors.surfaceSecondary }]}>
+            <Text style={[styles.versionText, { color: colors.textSecondary }]}>v{APP_VERSION}</Text>
+          </View>
         </View>
-        <Text style={[styles.appName, { color: colors.text }]}>myPharma</Text>
-        <Text style={[styles.appTagline, { color: colors.textTertiary }]}>
-          Βρες εφημερεύοντα φαρμακεία
-        </Text>
-        <View style={[styles.versionBadge, { backgroundColor: colors.surfaceSecondary }]}>
-          <Text style={[styles.versionText, { color: colors.textSecondary }]}>v{APP_VERSION}</Text>
-        </View>
-      </View>
 
-      {/* Theme Selector */}
-      <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ΕΜΦΑΝΙΣΗ</Text>
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={[styles.themeSelector, { backgroundColor: colors.surfaceSecondary }]}>
-          {themeOptions.map((opt) => {
-            const isSelected = themePreference === opt.value;
-            return (
-              <Pressable
-                key={opt.value}
-                onPress={() => handleThemeChange(opt.value)}
-                style={[
-                  styles.themeOption,
-                  isSelected && [styles.themeOptionActive, { backgroundColor: colors.card }],
-                ]}
-              >
-                <Ionicons
-                  name={opt.icon}
-                  size={18}
-                  color={isSelected ? colors.primary : colors.textTertiary}
-                />
-                <Text
+        {/* Theme Selector */}
+        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ΕΜΦΑΝΙΣΗ</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.themeSelector, { backgroundColor: colors.surfaceSecondary }]}>
+            {themeOptions.map((opt) => {
+              const isSelected = themePreference === opt.value;
+              return (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => handleThemeChange(opt.value)}
                   style={[
-                    styles.themeLabel,
-                    { color: isSelected ? colors.primary : colors.textSecondary },
+                    styles.themeOption,
+                    isSelected && [styles.themeOptionActive, { backgroundColor: colors.card }],
                   ]}
                 >
-                  {opt.label}
-                </Text>
-              </Pressable>
-            );
-          })}
+                  <Ionicons
+                    name={opt.icon}
+                    size={18}
+                    color={isSelected ? colors.primary : colors.textTertiary}
+                  />
+                  <Text
+                    style={[
+                      styles.themeLabel,
+                      { color: isSelected ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
-      </View>
 
-      {/* Data Management */}
-      <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ΔΕΔΟΜΕΝΑ</Text>
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <SettingsRow
-          icon="heart"
-          iconColor={colors.error}
-          iconBg={colors.errorLight}
-          label="Αγαπημένα"
-          value={favIds.length.toString()}
-          onPress={favIds.length > 0 ? confirmClearFavorites : undefined}
-          disabled={!favIds.length}
-          colors={colors}
-          showChevron={favIds.length > 0}
-        />
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <SettingsRow
-          icon="time"
-          iconColor={colors.warning}
-          iconBg={colors.warningLight}
-          label="Ιστορικό αναζήτησης"
-          value={history.length.toString()}
-          onPress={history.length > 0 ? confirmClearHistory : undefined}
-          disabled={!history.length}
-          colors={colors}
-          showChevron={history.length > 0}
-        />
-      </View>
+        {/* Data Management */}
+        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ΔΕΔΟΜΕΝΑ</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <SettingsRow
+            icon="heart"
+            iconColor={colors.error}
+            iconBg={colors.errorLight}
+            label="Αγαπημένα"
+            value={favIds.length.toString()}
+            onPress={favIds.length > 0 ? confirmClearFavorites : undefined}
+            disabled={!favIds.length}
+            colors={colors}
+            showChevron={favIds.length > 0}
+          />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <SettingsRow
+            icon="time"
+            iconColor={colors.warning}
+            iconBg={colors.warningLight}
+            label="Ιστορικό αναζήτησης"
+            value={history.length.toString()}
+            onPress={history.length > 0 ? confirmClearHistory : undefined}
+            disabled={!history.length}
+            colors={colors}
+            showChevron={history.length > 0}
+          />
+        </View>
 
-      {/* About */}
-      <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ΠΛΗΡΟΦΟΡΙΕΣ</Text>
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <SettingsRow
-          icon="star"
-          iconColor="#FFB800"
-          iconBg="#FFF8E6"
-          label="Βαθμολόγησε την εφαρμογή"
-          colors={colors}
-          showChevron
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            // Add App Store link here
-          }}
-        />
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <SettingsRow
-          icon="share-social"
-          iconColor={colors.primary}
-          iconBg={colors.primaryLight}
-          label="Μοιράσου την εφαρμογή"
-          colors={colors}
-          showChevron
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            // Add share functionality
-          }}
-        />
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <SettingsRow
-          icon="mail"
-          iconColor="#5856D6"
-          iconBg="#EDEDFD"
-          label="Επικοινωνία"
-          colors={colors}
-          showChevron
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            Linking.openURL('mailto:support@mypharma.gr');
-          }}
-        />
-      </View>
+        {/* About */}
+        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ΠΛΗΡΟΦΟΡΙΕΣ</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <SettingsRow
+            icon="star"
+            iconColor="#FFB800"
+            iconBg="#FFF8E6"
+            label="Βαθμολόγησε την εφαρμογή"
+            colors={colors}
+            showChevron
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              // Add App Store link here
+            }}
+          />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <SettingsRow
+            icon="share-social"
+            iconColor={colors.primary}
+            iconBg={colors.primaryLight}
+            label="Μοιράσου την εφαρμογή"
+            colors={colors}
+            showChevron
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              // Add share functionality
+            }}
+          />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <SettingsRow
+            icon="mail"
+            iconColor="#5856D6"
+            iconBg="#EDEDFD"
+            label="Επικοινωνία"
+            colors={colors}
+            showChevron
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              Linking.openURL('mailto:support@mypharma.gr');
+            }}
+          />
+        </View>
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={[styles.copyright, { color: colors.textTertiary }]}>
-          © {new Date().getFullYear()} myPharma
-        </Text>
-      </View>
-    </ScrollView>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={[styles.copyright, { color: colors.textTertiary }]}>
+            © {new Date().getFullYear()} myPharma
+          </Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 

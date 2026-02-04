@@ -1,15 +1,18 @@
 import React from 'react';
+import { StyleSheet, View, Platform, Image } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { PharmacyIcon } from '../../src/components/PharmacyIcon';
 import { useTheme } from '../../src/theme/ThemeProvider';
 
 export default function TabLayout() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
+        headerShown: false,
         headerStyle: {
           backgroundColor: colors.background,
         },
@@ -21,15 +24,41 @@ export default function TabLayout() {
           letterSpacing: -0.5,
         },
         tabBarStyle: {
-          backgroundColor: colors.tabBar,
+          position: 'absolute',
+          backgroundColor: 'transparent',
           borderTopWidth: 0,
           elevation: 0,
-          height: 88,
-          paddingTop: 8,
-          paddingBottom: 28,
+          height: 80, // Reverted to original
+          paddingTop: 12,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+          marginHorizontal: 16,
+          marginBottom: 16, // Reverted
+          borderRadius: 40, // Reverted
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.25,
+          shadowRadius: 10,
         },
-        tabBarActiveTintColor: colors.iconActive,
-        tabBarInactiveTintColor: colors.icon,
+        tabBarBackground: () => (
+          <View style={StyleSheet.absoluteFill}>
+            <BlurView
+              intensity={80}
+              tint={isDark ? 'dark' : 'light'}
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  borderRadius: 40, // Match tabBarStyle
+                  overflow: 'hidden',
+                  backgroundColor: isDark ? 'rgba(10,15,20,0.5)' : 'rgba(255,255,255,0.5)',
+                  borderWidth: 1,
+                  borderColor: colors.glassBorder,
+                },
+              ]}
+            />
+          </View>
+        ),
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '500' as const,
@@ -41,49 +70,46 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          title: 'Χάρτης',
+          tabBarIcon: ({ focused }) => (
+            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+              <Image
+                source={require('../../assets/map.png')}
+                style={{ width: 36, height: 36, opacity: focused ? 1 : 0.5 }}
+                resizeMode="contain"
+              />
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="pharmacies"
+        options={{
           title: 'Εφημερίες',
-          tabBarIcon: ({ color }) => (
-            <PharmacyIcon size={26} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+              <Image
+                source={require('../../assets/list.png')}
+                style={{ width: 36, height: 36, opacity: focused ? 1 : 0.5 }}
+                resizeMode="contain"
+              />
+            </View>
           ),
         }}
       />
-      <Tabs.Screen
-        name="nearby"
-        options={{
-          title: 'Κοντινά',
-          headerShown: false,
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'location' : 'location-outline'}
-              size={24}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: 'Αναζήτηση',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'search' : 'search-outline'}
-              size={24}
-              color={color}
-            />
-          ),
-        }}
-      />
+
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Ρυθμίσεις',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'cog' : 'cog-outline'}
-              size={24}
-              color={color}
-            />
+          tabBarIcon: ({ focused }) => (
+            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+              <Image
+                source={require('../../assets/set.png')}
+                style={{ width: 36, height: 36, opacity: focused ? 1 : 0.5 }}
+                resizeMode="contain"
+              />
+            </View>
           ),
         }}
       />
