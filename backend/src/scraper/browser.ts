@@ -10,11 +10,10 @@ puppeteer.use(StealthPlugin());
 puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
 
 // Find system Chrome/Chromium executable (for VPS/Docker)
+// Skip snap versions as they have sandboxing issues
 function findChromePath(): string | undefined {
   const paths = [
-    // Linux
-    '/usr/bin/chromium-browser',
-    '/usr/bin/chromium',
+    // Prefer Google Chrome (non-snap)
     '/usr/bin/google-chrome-stable',
     '/usr/bin/google-chrome',
     // macOS
@@ -29,7 +28,26 @@ function findChromePath(): string | undefined {
     }
   }
 
+  // Check if chromium-browser is NOT a snap (snap causes issues)
+  const chromiumPath = '/usr/bin/chromium-browser';
+  if (existsSync(chromiumPath)) {
+    // Check if it's a snap by looking for snap in the path
+    try {
+      const { execSync } = require('child_process');
+      const realPath = execSync(`readlink -f ${chromiumPath}`, { encoding: 'utf-8' }).trim();
+      if (!realPath.includes('snap')) {
+        console.log(`[browser] Using system Chromium: ${chromiumPath}`);
+        return chromiumPath;
+      } else {
+        console.log(`[browser] Skipping snap Chromium, using Puppeteer bundled Chrome`);
+      }
+    } catch {
+      // If readlink fails, skip it
+    }
+  }
+
   // Use Puppeteer's bundled Chrome
+  console.log(`[browser] Using Puppeteer bundled Chrome`);
   return undefined;
 }
 
