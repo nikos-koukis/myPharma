@@ -2,11 +2,36 @@ import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import AdblockerPlugin from 'puppeteer-extra-plugin-adblocker';
 import { Browser, Page } from 'puppeteer';
+import { existsSync } from 'fs';
 import { config } from '../config';
 
 // Add stealth and adblocker plugins
 puppeteer.use(StealthPlugin());
 puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
+
+// Find system Chrome/Chromium executable (for VPS/Docker)
+function findChromePath(): string | undefined {
+  const paths = [
+    // Linux
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome',
+    // macOS
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+  ];
+
+  for (const p of paths) {
+    if (existsSync(p)) {
+      console.log(`[browser] Using system Chrome: ${p}`);
+      return p;
+    }
+  }
+
+  // Use Puppeteer's bundled Chrome
+  return undefined;
+}
 
 // Randomize slowMo for more human-like behavior
 const SLOW_MO_OPTIONS = [25, 50, 75, 100];
@@ -108,11 +133,15 @@ export async function launchBrowser(options: BrowserOptions = {}): Promise<Brows
     args.push('--no-proxy-server');
   }
 
+  // Find system Chrome/Chromium executable
+  const executablePath = findChromePath();
+
   const browser = await puppeteer.launch({
     args,
     headless,
     slowMo: randomSlowMo(),
     defaultViewport: null,
+    ...(executablePath ? { executablePath } : {}),
   });
 
   return browser as unknown as Browser;

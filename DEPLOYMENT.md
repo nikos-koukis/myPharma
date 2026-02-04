@@ -328,7 +328,7 @@ npm run sync-regions
 # Sync only a specific prefecture
 npm run sync-regions -- --region ΑΧΑΪΑΣ
 npm run sync-regions -- -r ΑΤΤΙΚΗΣ
-SCRAPER_HEADLESS=false SCRAPER_DISPLAY=0 npm run sync-regions -- -r ΘΕΣΣΑΛΟΝΙΚΗΣ
+SCRAPER_HEADLESS=true SCRAPER_DISPLAY=99 npm run sync-regions -- -r ΘΕΣΣΑΛΟΝΙΚΗΣ
 
 # Run pharmacy scraper (all cities)
 npm run scrape
