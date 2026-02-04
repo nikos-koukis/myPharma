@@ -74,40 +74,31 @@ export async function launchBrowser(options: BrowserOptions = {}): Promise<Brows
 
   // Build Chrome args for anti-detection and headless server compatibility
   const args = [
+    // Essential for VPS/Docker
     '--no-sandbox',
     '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
     // X11 display for visible browser (Linux)
     ...(display !== undefined ? [`--display=:${display}`] : []),
     `--window-size=${windowSize}`,
     `--lang=${language}`,
+    // Anti-detection
     '--disable-blink-features=AutomationControlled',
     '--disable-notifications',
     '--disable-infobars',
     '--start-maximized',
     '--disable-popup-blocking',
-    '--disable-dev-shm-usage',
-    '--no-zygote',
     '--disable-extensions',
-    '--disable-gpu',
     '--no-default-browser-check',
-    '--disable-web-security',
     '--disable-sync',
     '--ignore-certificate-errors',
-    '--disable-browser-side-navigation',
-    '--disable-features=site-per-process',
-    // VPS/headless server specific flags
-    '--single-process',
+    // Reduce resource usage
     '--no-first-run',
     '--disable-background-networking',
     '--disable-default-apps',
-    '--disable-hang-monitor',
-    '--disable-prompt-on-repost',
     '--disable-translate',
     '--metrics-recording-only',
-    '--safebrowsing-disable-auto-update',
-    // Disable D-Bus (causes issues on VPS)
-    '--dbus-stub',
-    '--disable-software-rasterizer',
   ];
 
   // Add proxy if configured
