@@ -1,4 +1,4 @@
-import { Page } from 'playwright';
+import { Page } from 'puppeteer';
 
 export interface DutySlot {
   start: string;
@@ -18,14 +18,28 @@ export interface PharmacyData {
 
 export async function parsePharmacyPage(page: Page, city: string): Promise<PharmacyData[]> {
   // Accept cookies/consent if present
-  const acceptBtn = page.locator('#accept-btn');
-  if (await acceptBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await acceptBtn.click();
-    console.log(`[parser] Accepted cookie consent for ${city}`);
+  try {
+    const acceptBtn = await page.$('#accept-btn');
+    if (acceptBtn) {
+      const isVisible = await page.evaluate((el) => {
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      }, acceptBtn);
+      if (isVisible) {
+        await acceptBtn.click();
+        console.log(`[parser] Accepted cookie consent for ${city}`);
+      }
+    }
+  } catch {
+    // Ignore cookie consent errors
   }
 
   // Wait for pharmacy cards to load
-  await page.waitForSelector('.DutiesResult', { timeout: 15000 }).catch(() => null);
+  try {
+    await page.waitForSelector('.DutiesResult', { timeout: 15000 });
+  } catch {
+    // No results found, will return empty array
+  }
 
   const rawData = await page.evaluate((cityName: string) => {
     const results: Array<{
@@ -115,13 +129,54 @@ export async function parsePharmacyPage(page: Page, city: string): Promise<Pharm
     return results;
   }, city);
 
-  // Extract region from page header
-  const regionText = await page.locator('.pharmacies-regions-header h1').first().textContent().catch(() => '') ?? '';
-  const region = regionText
-    .replace(/Pharmacies on Duty & Open Pharmacies/i, '')
-    .replace(/Εφημερεύοντα & Ανοιχτά Φαρμακεία/i, '')
-    .trim()
-    .replace(/\s+/g, ' ');
+  // Extract region from page header or breadcrumb
+  let region = '';
+  try {
+    // Try header first
+    const regionEl = await page.$('.pharmacies-regions-header h1');
+    if (regionEl) {
+      const regionText = await page.evaluate((el) => el.textContent ?? '', regionEl);
+      console.log(`[parser] Raw header text: "${regionText}"`);
+
+      // Clean and split the header text into lines
+      const lines = regionText
+        .replace(/Pharmacies on Duty & Open Pharmacies/i, '')
+        .replace(/Εφημερεύοντα & Ανοιχτά Φαρμακεία/i, '')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+
+      // Last line is typically the prefecture (ΘΕΣΣΑΛΟΝΙΚΗΣ)
+      // First line after title is typically the city
+      if (lines.length >= 2) {
+        region = lines[lines.length - 1]; // Prefecture is last
+      } else if (lines.length === 1) {
+        region = lines[0];
+      }
+    }
+
+    // If region is empty or same as city, try to extract from breadcrumb or page URL
+    if (!region || region.toLowerCase() === city.toLowerCase()) {
+      // Try breadcrumb - usually contains prefecture info
+      const breadcrumb = await page.$('.breadcrumb, nav[aria-label="breadcrumb"], .breadcrumbs');
+      if (breadcrumb) {
+        const breadcrumbText = await page.evaluate((el) => el.textContent ?? '', breadcrumb);
+        console.log(`[parser] Breadcrumb text: "${breadcrumbText}"`);
+      }
+
+      // Try to get prefecture from page structure
+      const prefectureEl = await page.$('[class*="prefecture"], [class*="nomos"], .region-name');
+      if (prefectureEl) {
+        const prefText = await page.evaluate((el) => el.textContent ?? '', prefectureEl);
+        if (prefText) {
+          region = prefText.trim();
+          console.log(`[parser] Found prefecture from element: "${region}"`);
+        }
+      }
+    }
+  } catch (err) {
+    console.log(`[parser] Region extraction error:`, err);
+  }
 
   console.log(`[parser] Extracted location: region="${region}", city="${city}"`);
 

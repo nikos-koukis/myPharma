@@ -1,4 +1,4 @@
-import { Page } from 'playwright';
+import { Page } from 'puppeteer';
 import { config } from '../config';
 import { prisma } from '../db/client';
 
@@ -20,14 +20,24 @@ export async function discoverCities(page: Page, prefectureFilter?: string): Pro
 
   // 1. Load main page to get prefecture links
   console.log(`[cities] Loading main page: ${baseUrl}/`);
-  const response = await page.goto(`${baseUrl}/`, { waitUntil: 'networkidle', timeout: config.scraper.timeout });
+  const response = await page.goto(`${baseUrl}/`, { waitUntil: 'networkidle2', timeout: config.scraper.timeout });
   console.log(`[cities] Response: ${response?.status()} ${response?.statusText()} (url: ${response?.url()})`);
 
   // Accept cookies
-  const acceptBtn = page.locator('#accept-btn');
-  if (await acceptBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await acceptBtn.click();
-    console.log(`[cities] Accepted cookie consent`);
+  try {
+    const acceptBtn = await page.$('#accept-btn');
+    if (acceptBtn) {
+      const isVisible = await page.evaluate((el) => {
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      }, acceptBtn);
+      if (isVisible) {
+        await acceptBtn.click();
+        console.log(`[cities] Accepted cookie consent`);
+      }
+    }
+  } catch {
+    // Ignore cookie consent errors
   }
 
   // 2. Extract prefecture links — only from the alphabetical section (.blockContentPrefecture)
@@ -107,7 +117,7 @@ export async function discoverCities(page: Page, prefectureFilter?: string): Pro
         attempt++;
         try {
           console.log(`[cities] [${pi + 1}/${totalPrefs}] Loading prefecture: ${pref.name}${attempt > 1 ? ` (retry ${attempt}/${maxRetries})` : ''}`);
-          const prefResponse = await page.goto(pref.url, { waitUntil: 'networkidle', timeout: config.scraper.timeout });
+          const prefResponse = await page.goto(pref.url, { waitUntil: 'networkidle2', timeout: config.scraper.timeout });
           console.log(`[cities] [${pi + 1}/${totalPrefs}] Response: ${prefResponse?.status()} ${prefResponse?.statusText()}`);
 
           const cityLinks = await page.evaluate((base: string) => {

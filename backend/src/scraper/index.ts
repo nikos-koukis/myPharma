@@ -1,8 +1,4 @@
-import { chromium } from 'playwright-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-
-chromium.use(StealthPlugin());
-
+import { launchBrowser, createPage, randomUserAgent, Browser, Page } from './browser';
 import { discoverCities, syncCitiesToDb, getCitiesFromDb, CityEntry } from './cities';
 import { parsePharmacyPage, PharmacyData } from './parser';
 import { geocodeAddress, sleep } from './geocoder';
@@ -27,9 +23,10 @@ export async function runScraper(filter?: ScrapeFilter): Promise<void> {
   console.log(`[scraper] Starting scrape...`);
 
   const proxy = getProxyConfig();
-  const browser = await chromium.launch({
-    headless: true,
-    proxy: proxy ? { server: proxy.server } : undefined,
+  const browser = await launchBrowser({
+    headless: config.scraper.headless,
+    display: config.scraper.display,
+    proxy,
   });
 
   try {
@@ -57,17 +54,13 @@ export async function runScraper(filter?: ScrapeFilter): Promise<void> {
       cities = dbCities;
     } else {
       console.log('[scraper] No cities in DB or scrapeRegions=true, discovering from vrisko.gr...');
-      const discoveryContext = await browser.newContext({
+      const discoveryPage = await createPage(browser, {
         userAgent: randomUserAgent(),
         viewport: { width: 1920, height: 1080 },
-        locale: 'el-GR',
-        httpCredentials: proxy ? { username: proxy.username, password: proxy.password } : undefined,
-        ignoreHTTPSErrors: !!proxy,
+        proxy: proxy ? { username: proxy.username, password: proxy.password } : undefined,
       });
-      const discoveryPage = await discoveryContext.newPage();
       await syncCitiesToDb(discoveryPage);
       await discoveryPage.close();
-      await discoveryContext.close();
       cities = await getCitiesFromDb();
     }
 
@@ -84,7 +77,7 @@ export async function runScraper(filter?: ScrapeFilter): Promise<void> {
       console.log(`[scraper] Scraping cities [${i + 1}-${batchEnd}/${totalCities}]...`);
 
       const batchResults = await Promise.allSettled(
-        batch.map((city) => scrapeCity(browser, city))
+        batch.map((city) => scrapeCity(browser, city, proxy))
       );
 
       for (const result of batchResults) {
@@ -171,45 +164,29 @@ export async function runScraper(filter?: ScrapeFilter): Promise<void> {
   console.log('[scraper] Done');
 }
 
-const USER_AGENTS = [
-  // Desktop
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Safari/605.1.15',
-  // Mobile
-  'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36',
-  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1',
-  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/143.0.7499.151 Mobile/15E148 Safari/604.1',
-];
-
-function randomUserAgent(): string {
-  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-}
-
 async function scrapeCity(
-  browser: ReturnType<typeof chromium.launch> extends Promise<infer B> ? B : never,
-  city: CityEntry
+  browser: Browser,
+  city: CityEntry,
+  proxy?: { server: string; username: string; password: string }
 ): Promise<PharmacyData[]> {
   const url = city.url.startsWith('http') ? city.url : `https://www.vrisko.gr${city.url}`;
   let attempts = 0;
 
   while (attempts <= config.scraper.retries) {
-    const proxy = getProxyConfig();
-    const context = await browser.newContext({
+    const page = await createPage(browser, {
       userAgent: randomUserAgent(),
       viewport: { width: 1920, height: 1080 },
-      locale: 'el-GR',
-      httpCredentials: proxy ? { username: proxy.username, password: proxy.password } : undefined,
-      ignoreHTTPSErrors: !!proxy,
+      proxy: proxy ? { username: proxy.username, password: proxy.password } : undefined,
     });
-    const page = await context.newPage();
 
     try {
       console.log(`[scraper] Scraping ${city.name} (${city.prefecture})${attempts > 0 ? ` (retry ${attempts}/${config.scraper.retries})` : ''}...`);
       console.log(`[scraper] URL: ${url}`);
-      const response = await page.goto(url, { waitUntil: 'networkidle', timeout: config.scraper.timeout });
+
+      const response = await page.goto(url, {
+        waitUntil: 'networkidle2',
+        timeout: config.scraper.timeout
+      });
       console.log(`[scraper] Response: ${response?.status()} ${response?.statusText()}`);
 
       const pharmacies = await parsePharmacyPage(page, city.name);
@@ -230,7 +207,6 @@ async function scrapeCity(
       }
     } finally {
       await page.close();
-      await context.close();
     }
   }
 

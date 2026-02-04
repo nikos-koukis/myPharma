@@ -42,6 +42,8 @@ export const config = {
     timeout: 30000,
     retries: 3,
     baseUrl: 'https://www.vrisko.gr/efimeries-farmakeion',
+    headless: env('SCRAPER_HEADLESS', 'true') === 'true',  // Set to false to see browser
+    display: process.env.SCRAPER_DISPLAY ? envInt('SCRAPER_DISPLAY', 0) : undefined, // X11 display (e.g., 0 for :0)
   },
 
   proxy: {
