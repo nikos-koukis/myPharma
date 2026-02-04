@@ -35,6 +35,7 @@ export const config = {
   },
 
   scraper: {
+    mode: env('SCRAPER_MODE', 'curl') as 'puppeteer' | 'curl', // 'curl' for lightweight, 'puppeteer' for full browser
     pharmacyCron: '0 6 * * *',          // Daily at 6 AM — scrape pharmacies
     regionCron: '0 5 * * 0',            // Weekly Sunday at 5 AM — refresh regions
     scrapeRegions: false,                // If true, daily cron also refreshes regions

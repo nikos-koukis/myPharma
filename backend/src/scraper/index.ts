@@ -1,6 +1,9 @@
-import { launchBrowser, createPage, randomUserAgent, Browser, Page } from './browser';
+import { launchBrowser, createPage, randomUserAgent, Browser } from './browser';
 import { discoverCities, syncCitiesToDb, getCitiesFromDb, CityEntry } from './cities';
 import { parsePharmacyPage, PharmacyData } from './parser';
+import { fetchPage } from './curl-fetcher';
+import { parsePharmacyHtml } from './html-parser';
+import { CITY_LIST, CityConfig, getCityUrl, filterCitiesByName, filterCitiesByPrefecture } from './city-list';
 import { geocodeAddress, sleep } from './geocoder';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db/client';
@@ -19,9 +22,111 @@ export interface ScrapeFilter {
   region?: string;
 }
 
+/**
+ * Main scraper entry point - switches between puppeteer and curl modes
+ */
 export async function runScraper(filter?: ScrapeFilter): Promise<void> {
-  console.log(`[scraper] Starting scrape...`);
+  const mode = config.scraper.mode;
+  console.log(`[scraper] Starting scrape in ${mode.toUpperCase()} mode...`);
 
+  if (mode === 'curl') {
+    await runCurlScraper(filter);
+  } else {
+    await runPuppeteerScraper(filter);
+  }
+}
+
+/**
+ * Curl-based scraper (lightweight, ~5MB memory)
+ * Uses hardcoded city list and cheerio for HTML parsing
+ */
+async function runCurlScraper(filter?: ScrapeFilter): Promise<void> {
+  // Get cities from hardcoded list
+  let cities: CityConfig[] = CITY_LIST;
+
+  if (filter) {
+    if (filter.city) {
+      cities = filterCitiesByName(filter.city);
+      console.log(`[scraper] Filtered by city "${filter.city}" → ${cities.length} matches`);
+    } else if (filter.region) {
+      cities = filterCitiesByPrefecture(filter.region);
+      console.log(`[scraper] Filtered by region "${filter.region}" → ${cities.length} matches`);
+    }
+    if (cities.length === 0) {
+      console.log('[scraper] No cities matched the filter. Check city-list.ts for available cities.');
+      return;
+    }
+  }
+
+  console.log(`[scraper] Will scrape ${cities.length} cities...`);
+
+  let totalScraped = 0;
+  let saved = 0;
+
+  const totalCities = cities.length;
+  for (let i = 0; i < totalCities; i += config.scraper.concurrency) {
+    const batch = cities.slice(i, i + config.scraper.concurrency);
+    const batchEnd = Math.min(i + config.scraper.concurrency, totalCities);
+    console.log(`[scraper] Scraping cities [${i + 1}-${batchEnd}/${totalCities}]...`);
+
+    const batchResults = await Promise.allSettled(
+      batch.map((city) => scrapeCityCurl(city))
+    );
+
+    for (const result of batchResults) {
+      if (result.status !== 'fulfilled') {
+        console.error(`[scraper] Batch error:`, result.reason);
+        continue;
+      }
+
+      const pharmacies = result.value;
+      totalScraped += pharmacies.length;
+
+      for (const data of pharmacies) {
+        saved += await savePharmacy(data);
+      }
+    }
+  }
+
+  console.log(`[scraper] Scraped ${totalScraped}, saved ${saved} pharmacies`);
+  await invalidatePattern('pharmacies:*');
+  console.log('[scraper] Cache invalidated');
+  console.log('[scraper] Done');
+}
+
+/**
+ * Scrape a city using curl/fetch
+ */
+async function scrapeCityCurl(city: CityConfig): Promise<PharmacyData[]> {
+  const url = getCityUrl(city);
+
+  try {
+    console.log(`[scraper] Scraping ${city.name} (${city.prefecture})...`);
+    console.log(`[scraper] URL: ${url}`);
+
+    const { html, status } = await fetchPage(url, config.scraper.retries);
+    console.log(`[scraper] Response: ${status}`);
+
+    const pharmacies = parsePharmacyHtml(html, city.name, city.prefecture);
+
+    // Set prefecture as region if parser didn't find one
+    const enriched = pharmacies.map((p) => ({
+      ...p,
+      region: p.region || city.prefecture,
+    }));
+
+    return enriched;
+  } catch (err) {
+    console.error(`[scraper] Failed to scrape ${city.name}:`, err);
+    return [];
+  }
+}
+
+/**
+ * Puppeteer-based scraper (full browser, ~500MB memory)
+ * Uses DB cities or discovers them from vrisko.gr
+ */
+async function runPuppeteerScraper(filter?: ScrapeFilter): Promise<void> {
   const proxy = getProxyConfig();
   const browser = await launchBrowser({
     headless: config.scraper.headless,
@@ -30,12 +135,11 @@ export async function runScraper(filter?: ScrapeFilter): Promise<void> {
   });
 
   try {
-    // 1. Get cities — from DB if available, otherwise discover from vrisko.gr
+    // Get cities from DB or discover
     let cities: CityEntry[];
     const dbCities = await getCitiesFromDb();
 
     if (filter) {
-      // When filtering, use DB cities only — don't do full discovery
       cities = dbCities;
       if (filter.city) {
         const q = filter.city.toLowerCase();
@@ -66,7 +170,6 @@ export async function runScraper(filter?: ScrapeFilter): Promise<void> {
 
     console.log(`[scraper] Will scrape ${cities.length} cities...`);
 
-    // 2. Scrape pharmacies from each city and save + geocode immediately
     let totalScraped = 0;
     let saved = 0;
 
@@ -77,7 +180,7 @@ export async function runScraper(filter?: ScrapeFilter): Promise<void> {
       console.log(`[scraper] Scraping cities [${i + 1}-${batchEnd}/${totalCities}]...`);
 
       const batchResults = await Promise.allSettled(
-        batch.map((city) => scrapeCity(browser, city, proxy))
+        batch.map((city) => scrapeCityPuppeteer(browser, city, proxy))
       );
 
       for (const result of batchResults) {
@@ -90,71 +193,12 @@ export async function runScraper(filter?: ScrapeFilter): Promise<void> {
         totalScraped += pharmacies.length;
 
         for (const data of pharmacies) {
-          try {
-            console.log(`[scraper] Saving ${data.name} (${data.city})`);
-            const pharmacy = await prisma.pharmacy.upsert({
-              where: {
-                name_address_city: {
-                  name: data.name,
-                  address: data.address,
-                  city: data.city,
-                },
-              },
-              update: {
-                phone: data.phone,
-                region: data.region,
-              },
-              create: {
-                name: data.name,
-                address: data.address,
-                phone: data.phone,
-                city: data.city,
-                region: data.region,
-              },
-            });
-
-            // Geocode if missing coordinates
-            if (pharmacy.lat === null || pharmacy.lng === null) {
-              const coords = await geocodeAddress(data.address, data.city);
-              if (coords) {
-                await prisma.pharmacy.update({
-                  where: { id: pharmacy.id },
-                  data: { lat: coords.lat, lng: coords.lng },
-                });
-              }
-              await sleep(config.geocoder.rateLimit);
-            }
-
-            // Upsert duty record with all duty slots
-            await prisma.pharmacyDuty.upsert({
-              where: {
-                pharmacyId_dutyDate: {
-                  pharmacyId: pharmacy.id,
-                  dutyDate: new Date(data.dutyDate),
-                },
-              },
-              update: {
-                scrapedAt: new Date(),
-                duties: data.duties as unknown as Prisma.InputJsonValue,
-              },
-              create: {
-                pharmacyId: pharmacy.id,
-                dutyDate: new Date(data.dutyDate),
-                duties: data.duties as unknown as Prisma.InputJsonValue,
-              },
-            });
-
-            saved++;
-          } catch (err) {
-            console.error(`[scraper] Failed to save pharmacy ${data.name}:`, err);
-          }
+          saved += await savePharmacy(data);
         }
       }
     }
 
     console.log(`[scraper] Scraped ${totalScraped}, saved ${saved} pharmacies`);
-
-    // Invalidate cache
     await invalidatePattern('pharmacies:*');
     console.log('[scraper] Cache invalidated');
   } finally {
@@ -164,7 +208,10 @@ export async function runScraper(filter?: ScrapeFilter): Promise<void> {
   console.log('[scraper] Done');
 }
 
-async function scrapeCity(
+/**
+ * Scrape a city using Puppeteer
+ */
+async function scrapeCityPuppeteer(
   browser: Browser,
   city: CityEntry,
   proxy?: { server: string; username: string; password: string }
@@ -191,7 +238,6 @@ async function scrapeCity(
 
       const pharmacies = await parsePharmacyPage(page, city.name);
 
-      // Set prefecture as region if parser didn't find one
       const enriched = pharmacies.map((p) => ({
         ...p,
         region: p.region || city.prefecture,
@@ -211,4 +257,69 @@ async function scrapeCity(
   }
 
   return [];
+}
+
+/**
+ * Save pharmacy data to database (shared between modes)
+ */
+async function savePharmacy(data: PharmacyData): Promise<number> {
+  try {
+    console.log(`[scraper] Saving ${data.name} (${data.city})`);
+    const pharmacy = await prisma.pharmacy.upsert({
+      where: {
+        name_address_city: {
+          name: data.name,
+          address: data.address,
+          city: data.city,
+        },
+      },
+      update: {
+        phone: data.phone,
+        region: data.region,
+      },
+      create: {
+        name: data.name,
+        address: data.address,
+        phone: data.phone,
+        city: data.city,
+        region: data.region,
+      },
+    });
+
+    // Geocode if missing coordinates
+    if (pharmacy.lat === null || pharmacy.lng === null) {
+      const coords = await geocodeAddress(data.address, data.city);
+      if (coords) {
+        await prisma.pharmacy.update({
+          where: { id: pharmacy.id },
+          data: { lat: coords.lat, lng: coords.lng },
+        });
+      }
+      await sleep(config.geocoder.rateLimit);
+    }
+
+    // Upsert duty record
+    await prisma.pharmacyDuty.upsert({
+      where: {
+        pharmacyId_dutyDate: {
+          pharmacyId: pharmacy.id,
+          dutyDate: new Date(data.dutyDate),
+        },
+      },
+      update: {
+        scrapedAt: new Date(),
+        duties: data.duties as unknown as Prisma.InputJsonValue,
+      },
+      create: {
+        pharmacyId: pharmacy.id,
+        dutyDate: new Date(data.dutyDate),
+        duties: data.duties as unknown as Prisma.InputJsonValue,
+      },
+    });
+
+    return 1;
+  } catch (err) {
+    console.error(`[scraper] Failed to save pharmacy ${data.name}:`, err);
+    return 0;
+  }
 }

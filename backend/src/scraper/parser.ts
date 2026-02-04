@@ -136,8 +136,6 @@ export async function parsePharmacyPage(page: Page, city: string): Promise<Pharm
     const regionEl = await page.$('.pharmacies-regions-header h1');
     if (regionEl) {
       const regionText = await page.evaluate((el) => el.textContent ?? '', regionEl);
-      console.log(`[parser] Raw header text: "${regionText}"`);
-
       // Clean and split the header text into lines
       const lines = regionText
         .replace(/Pharmacies on Duty & Open Pharmacies/i, '')
