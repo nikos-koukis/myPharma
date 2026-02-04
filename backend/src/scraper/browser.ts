@@ -72,9 +72,10 @@ export async function launchBrowser(options: BrowserOptions = {}): Promise<Brows
   const windowSize = randomWindowSize();
   const language = randomLanguage();
 
-  // Build Chrome args for anti-detection
+  // Build Chrome args for anti-detection and headless server compatibility
   const args = [
     '--no-sandbox',
+    '--disable-setuid-sandbox',
     // X11 display for visible browser (Linux)
     ...(display !== undefined ? [`--display=:${display}`] : []),
     `--window-size=${windowSize}`,
@@ -84,7 +85,6 @@ export async function launchBrowser(options: BrowserOptions = {}): Promise<Brows
     '--disable-infobars',
     '--start-maximized',
     '--disable-popup-blocking',
-    '--disable-setuid-sandbox',
     '--disable-dev-shm-usage',
     '--no-zygote',
     '--disable-extensions',
@@ -95,6 +95,19 @@ export async function launchBrowser(options: BrowserOptions = {}): Promise<Brows
     '--ignore-certificate-errors',
     '--disable-browser-side-navigation',
     '--disable-features=site-per-process',
+    // VPS/headless server specific flags
+    '--single-process',
+    '--no-first-run',
+    '--disable-background-networking',
+    '--disable-default-apps',
+    '--disable-hang-monitor',
+    '--disable-prompt-on-repost',
+    '--disable-translate',
+    '--metrics-recording-only',
+    '--safebrowsing-disable-auto-update',
+    // Disable D-Bus (causes issues on VPS)
+    '--dbus-stub',
+    '--disable-software-rasterizer',
   ];
 
   // Add proxy if configured
