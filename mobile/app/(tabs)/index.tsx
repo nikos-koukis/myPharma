@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { openDirections } from '../../src/utils/linking';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -354,11 +355,7 @@ export default function MapScreen() {
                   { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 },
                 ]}
                 onPress={() => {
-                  const url = Platform.select({
-                    ios: `maps:?saddr=${lat},${lng}&daddr=${selectedPharmacy.lat},${selectedPharmacy.lng}&dirflg=w`,
-                    android: `google.navigation:q=${selectedPharmacy.lat},${selectedPharmacy.lng}&mode=w`,
-                  });
-                  if (url) Linking.openURL(url);
+                  openDirections(selectedPharmacy.lat, selectedPharmacy.lng, selectedPharmacy.name);
                 }}
               >
                 <Text style={styles.navButtonText}>Πλοήγηση</Text>

@@ -82,7 +82,10 @@ export default function PharmacyDetailScreen() {
       />
 
       {/* Hero Map (Layer 0) */}
-      <View style={[styles.heroMapContainer, { height: '100%' }]}>
+      <Pressable
+        style={[styles.heroMapContainer, { height: '100%' }]}
+        onPress={() => pharmacy.lat && pharmacy.lng && openDirections(pharmacy.lat, pharmacy.lng, pharmacy.name)}
+      >
         {pharmacy.lat && pharmacy.lng ? (
           <MapView
             style={StyleSheet.absoluteFill}
@@ -96,6 +99,8 @@ export default function PharmacyDetailScreen() {
             zoomEnabled={false}
             pitchEnabled={false}
             rotateEnabled={false}
+            showsUserLocation={false}
+            pointerEvents="none" // Pass touches to Pressable
             userInterfaceStyle={isDark ? 'dark' : 'light'}
           >
             <Marker coordinate={{ latitude: pharmacy.lat, longitude: pharmacy.lng }}>
@@ -114,7 +119,7 @@ export default function PharmacyDetailScreen() {
           style={[styles.mapGradient, { height: 300, bottom: 0 }]}
           pointerEvents="none"
         />
-      </View>
+      </Pressable>
 
       {/* Main Content (Layer 1 - ScrollView) */}
       <ScrollView

@@ -20,6 +20,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     infoPlist: {
       NSLocationWhenInUseUsageDescription:
         'We need your location to find nearby on-duty pharmacies.',
+      LSApplicationQueriesSchemes: ['maps', 'comgooglemaps', 'geo'],
     },
   },
   android: {

@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useMemo } from 'react';
-import { StyleSheet, View, Image } from 'react-native';
+import { StyleSheet, View, Image, ActivityIndicator, Text } from 'react-native';
 import MapView, { Marker, Region, Polyline, Circle } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { useTheme } from '../theme/ThemeProvider';
 import type { NearbyPharmacy } from '../types';
+import { getRoute } from '../services/routing';
 
 const pharmacyImage = require('../../assets/pin.png');
 
@@ -26,9 +28,10 @@ export function PharmacyMap({
 }: Props) {
   const { colors, isDark } = useTheme();
   const mapRef = useRef<MapView>(null);
+  const [routeCoordinates, setRouteCoordinates] = React.useState<{ latitude: number; longitude: number }[]>([]);
 
-  // Calculate map delta based on radius
-  const delta = (radius / 111_320) * 2.5;
+  // Calculate map delta based on radius (making it tighter initially)
+  const delta = (radius / 111_320) * 1.0;
 
   const initialRegion: Region = {
     latitude: userLat,
@@ -38,32 +41,94 @@ export function PharmacyMap({
   };
 
   // Track if we've done initial auto-select (to avoid re-selecting after dismiss)
+  const [isInitializing, setIsInitializing] = React.useState(true);
   const hasAutoSelectedRef = useRef(false);
 
-  // Auto-select closest pharmacy on initial load ONLY
+  // Auto-select closest pharmacy on initial load with a slight delay
   useEffect(() => {
     if (pharmacies.length > 0 && !hasAutoSelectedRef.current) {
-      // Pharmacies are already sorted by distance from API
-      const closest = pharmacies[0];
-      onSelectPharmacy(closest);
-      hasAutoSelectedRef.current = true;
+      const timer = setTimeout(() => {
+        // Pharmacies are already sorted by distance from API
+        const closest = pharmacies[0];
+        onSelectPharmacy(closest);
+        hasAutoSelectedRef.current = true;
+        setIsInitializing(false);
+      }, 2000); // 2s delay as requested to let map initialize
+
+      return () => clearTimeout(timer);
+    } else if (pharmacies.length === 0) {
+      setIsInitializing(false);
     }
   }, [pharmacies, onSelectPharmacy]);
 
-  // Fit map to show selected pharmacy or all pharmacies
+
+
+  // Fetch real route when pharmacy is selected
   useEffect(() => {
-    if (selectedPharmacy && mapRef.current) {
-      // Animate to a zoomed, 3D view focused on the pharmacy
-      // Fit both user and pharmacy on screen with padding for the bottom card
-      mapRef.current.fitToCoordinates([
+    let isActive = true;
+
+    async function fetchRoute() {
+      if (!selectedPharmacy) {
+        if (isActive) setRouteCoordinates([]);
+        return;
+      }
+
+      // SET FALLBACK IMMEDIATELY so preview is visible while loading
+      setRouteCoordinates([
         { latitude: userLat, longitude: userLng },
         { latitude: selectedPharmacy.lat, longitude: selectedPharmacy.lng },
-      ], {
-        edgePadding: { top: 120, right: 50, bottom: 350, left: 50 },
+      ]);
+
+      console.log('Fetching route for:', selectedPharmacy.name, 'Coordinates:', selectedPharmacy.lat, selectedPharmacy.lng);
+
+      const coords = await getRoute(
+        userLat,
+        userLng,
+        selectedPharmacy.lat,
+        selectedPharmacy.lng
+      );
+
+      if (!isActive) return;
+
+      if (coords.length > 0) {
+        console.log('Route found with points:', coords.length);
+        setRouteCoordinates(coords);
+      } else {
+        console.warn('Route fetch failed or returned empty. Staying with straight line.');
+      }
+    }
+
+    fetchRoute();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedPharmacy, userLat, userLng]);
+
+  // Fit map to show selected pharmacy or all pharmacies
+  useEffect(() => {
+    // Only fit if we have valid dimensions/ref
+    if (!mapRef.current) return;
+
+    if (selectedPharmacy) {
+      // Focus on User + Selected + the original closest pharmacy
+      const closest = pharmacies[0];
+      const fitPoints = [
+        { latitude: userLat, longitude: userLng },
+        { latitude: selectedPharmacy.lat, longitude: selectedPharmacy.lng },
+      ];
+
+      // To ensure the "closest" one (the first in the list) is always visible
+      if (closest && closest.id !== selectedPharmacy.id) {
+        fitPoints.push({ latitude: closest.lat, longitude: closest.lng });
+      }
+
+      mapRef.current.fitToCoordinates(fitPoints, {
+        edgePadding: { top: 80, right: 80, bottom: 350, left: 80 },
         animated: true,
       });
-    } else if (!selectedPharmacy && mapRef.current && hasAutoSelectedRef.current) {
-      // Zoom out to show all pharmacies ONLY when selection is manually cleared
+    } else if (hasAutoSelectedRef.current) {
+      // Only zoom out if we had a selection before (user deselected)
       const coordinates = [
         { latitude: userLat, longitude: userLng },
         ...pharmacies.map(p => ({ latitude: p.lat, longitude: p.lng }))
@@ -76,76 +141,53 @@ export function PharmacyMap({
     }
   }, [selectedPharmacy, userLat, userLng, pharmacies]);
 
-  // Route polyline coordinates
-  const routeCoordinates = useMemo(() => {
-    if (!selectedPharmacy) return [];
-    return [
-      { latitude: userLat, longitude: userLng },
-      { latitude: selectedPharmacy.lat, longitude: selectedPharmacy.lng },
-    ];
-  }, [selectedPharmacy, userLat, userLng]);
-
   const handleMarkerPress = (pharmacy: NearbyPharmacy) => {
     onSelectPharmacy(pharmacy);
   };
+
+  useEffect(() => {
+    console.log('[PharmacyMap] user location:', userLat, userLng);
+  }, [userLat, userLng]);
 
   return (
     <MapView
       ref={mapRef}
       style={styles.map}
       initialRegion={initialRegion}
-      showsUserLocation={false}
+      showsUserLocation={true}
+      userLocationAnnotationTitle=""
       showsMyLocationButton={false}
       userInterfaceStyle={isDark ? 'dark' : 'light'}
       mapPadding={{ top: 0, right: 0, bottom: 180, left: 0 }}
       pitchEnabled={true}
-      camera={{
-        center: { latitude: userLat, longitude: userLng },
-        pitch: 45,
-        heading: 0,
-        zoom: 15,
-      }}
     >
-      {/* Custom user location with glowing effect */}
-      <Circle
-        center={{ latitude: userLat, longitude: userLng }}
-        radius={80}
-        fillColor="rgba(191, 223, 210, 0.2)"
-        strokeColor="rgba(191, 223, 210, 0.4)"
-        strokeWidth={1}
-        zIndex={100}
-      />
-      <Circle
-        center={{ latitude: userLat, longitude: userLng }}
-        radius={40}
-        fillColor="rgba(191, 223, 210, 0.35)"
-        strokeColor="rgba(191, 223, 210, 0.6)"
-        strokeWidth={2}
-        zIndex={101}
-      />
-      <Marker
-        coordinate={{ latitude: userLat, longitude: userLng }}
-        anchor={{ x: 0.5, y: 0.5 }}
-        zIndex={102}
-        tracksViewChanges={false} // User location doesn't change visually
-      >
-        <View style={styles.userLocationOuter}>
-          <View style={styles.userLocationInner}>
-            <Ionicons name="walk" size={12} color="#1A1D21" />
-          </View>
-        </View>
-      </Marker>
 
-      {/* Route line from user to selected pharmacy */}
-      {selectedPharmacy && (
+      {/* 1. Background Glow Circle (The "Circle" the user mentioned) */}
+      <Circle
+        center={{ latitude: userLat, longitude: userLng }}
+        radius={120}
+        fillColor="rgba(191, 223, 210, 0.35)"
+        strokeColor="rgba(191, 223, 210, 0.5)"
+        strokeWidth={1.5}
+        zIndex={1}
+      />
+
+
+
+
+      {/* 1. Route line - use a distinctive color to verify walking mode */}
+      {selectedPharmacy && routeCoordinates.length > 0 && (
         <Polyline
           coordinates={routeCoordinates}
-          strokeColor={colors.primary}
-          strokeWidth={4}
+          strokeColor="#0ED991"
+          strokeWidth={5}
+          zIndex={100}
         />
       )}
 
-      {/* Pharmacy markers - 3D building */}
+
+
+      {/* 2. Pharmacy markers */}
       {pharmacies.map((p) => (
         <PharmacyMarker
           key={p.id}
@@ -155,7 +197,38 @@ export function PharmacyMap({
           colors={colors}
         />
       ))}
-    </MapView>
+
+
+
+
+      {/* 3. User Walking Marker (LAST IN LIST = TOP VISIBILITY) */}
+      <Marker
+        key="user-location-stable"
+        coordinate={{ latitude: userLat, longitude: userLng }}
+        anchor={{ x: 0.5, y: 0.5 }}
+        zIndex={10000}
+        tracksViewChanges={true}
+      >
+        <View collapsable={false} style={styles.userLocationOuter}>
+          <View collapsable={false} style={styles.userLocationInner}>
+            <Ionicons name="walk" size={14} color="#1A1D21" />
+          </View>
+        </View>
+      </Marker>
+
+      {
+        isInitializing && (
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={styles.initializingOverlay}>
+              <View style={[styles.loaderBox, { backgroundColor: colors.surfaceSecondary }]}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={[styles.loaderText, { color: colors.text }]}>Προετοιμασία χάρτη...</Text>
+              </View>
+            </BlurView>
+          </View>
+        )
+      }
+    </MapView >
   );
 }
 
@@ -174,19 +247,19 @@ function PharmacyMarker({
     <Marker
       coordinate={{ latitude: pharmacy.lat, longitude: pharmacy.lng }}
       onPress={() => onPress(pharmacy)}
-      zIndex={isSelected ? 1000 : 1}
+      zIndex={isSelected ? 5000 : 1000}
       anchor={{ x: 0.5, y: 1 }}
-      tracksViewChanges={true} // Ensure always rendered
+      tracksViewChanges={true}
     >
       <View
-        collapsable={false} // Crucial for iOS marker visibility
+        collapsable={false}
         style={[
           styles.pharmacyMarker,
           {
             shadowColor: colors.primary,
             shadowOpacity: isSelected ? 0.9 : 0.5,
             shadowRadius: isSelected ? 15 : 8,
-            transform: isSelected ? [{ scale: 1.5 }] : [{ scale: 1 }],
+            transform: isSelected ? [{ scale: 1.4 }] : [{ scale: 1 }],
           },
         ]}
       >
@@ -262,5 +335,49 @@ const styles = StyleSheet.create({
   pharmacyImage: {
     width: 44,
     height: 44,
+  },
+  userMarkerContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 122, 255, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userMarkerDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#007AFF',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  initializingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  loaderBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 50,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  loaderText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
