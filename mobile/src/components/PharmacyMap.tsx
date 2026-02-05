@@ -183,7 +183,7 @@ export function PharmacyMap({
 
 
 
-// 2. Pharmacy markers
+      {/* 2. Pharmacy markers */}
       {pharmacies.map((p) => (
         <PharmacyMarker
           key={p.id}
@@ -228,7 +228,7 @@ export function PharmacyMap({
   );
 }
 
-function PharmacyMarker({
+const PharmacyMarker = React.memo(({
   pharmacy,
   isSelected,
   onPress,
@@ -238,14 +238,30 @@ function PharmacyMarker({
   isSelected: boolean;
   onPress: (p: NearbyPharmacy) => void;
   colors: any;
-}) {
+}) => {
+  const [tracksView, setTracksView] = React.useState(true);
+
+  // Use a unique key that changes when selection state changes.
+  // This FORCES the native marker to completely re-mount, which 
+  // fixes the disappearing icon bug in react-native-maps.
+  const markerKey = `${pharmacy.id}-${isSelected ? 'selected' : 'unselected'}`;
+
+  React.useEffect(() => {
+    setTracksView(true);
+    const timer = setTimeout(() => {
+      setTracksView(false);
+    }, 5000); // 5s is very safe for rendering
+    return () => clearTimeout(timer);
+  }, [isSelected]);
+
   return (
     <Marker
+      key={markerKey}
       coordinate={{ latitude: pharmacy.lat, longitude: pharmacy.lng }}
       onPress={() => onPress(pharmacy)}
       zIndex={isSelected ? 5000 : 1000}
       anchor={{ x: 0.5, y: 1 }}
-      tracksViewChanges={false}
+      tracksViewChanges={tracksView}
     >
       <View
         collapsable={false}
@@ -267,7 +283,11 @@ function PharmacyMarker({
       </View>
     </Marker>
   );
-}
+}, (prev, next) => (
+  prev.isSelected === next.isSelected &&
+  prev.pharmacy.id === next.pharmacy.id &&
+  prev.colors.primary === next.colors.primary
+));
 
 const styles = StyleSheet.create({
   map: {
