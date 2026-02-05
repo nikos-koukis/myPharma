@@ -311,10 +311,10 @@ npm run db:reset
 
 ```bash
 # 1. Dump local DB
-pg_dump -U mypharma -h localhost mypharma > /tmp/mypharma_dump.sql
+docker exec -t backend-postgres-1 pg_dump -U mypharma mypharma > mypharma_dump.sql
 
 # 2. Copy to server
-scp /tmp/mypharma_dump.sql mypharma:~/
+scp mypharma_dump.sql mypharma:~/
 
 # 3. Restore on server
 ssh mypharma "docker exec -i mypharma-postgres-1 psql -U mypharma mypharma < ~/mypharma_dump.sql"
