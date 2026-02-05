@@ -43,11 +43,22 @@ export function getCurrentMinutes(): number {
 
 /**
  * Get current date in YYYY-MM-DD format (Greece timezone)
+ * If it's before 08:30 AM, we return the previous day because that's when 
+ * the "overnight" duty slots are still active and associated with.
  */
 export function getCurrentDate(): string {
   const now = new Date();
   const offsetMs = getGreeceOffset() * 60 * 1000;
   const greeceTime = new Date(now.getTime() + offsetMs + now.getTimezoneOffset() * 60 * 1000);
+
+  const hours = greeceTime.getHours();
+  const minutes = greeceTime.getMinutes();
+  const totalMinutes = hours * 60 + minutes;
+
+  // If before 08:30 AM, use yesterday's date for duties
+  if (totalMinutes < (8 * 60 + 30)) {
+    greeceTime.setDate(greeceTime.getDate() - 1);
+  }
 
   const year = greeceTime.getFullYear();
   const month = String(greeceTime.getMonth() + 1).padStart(2, '0');

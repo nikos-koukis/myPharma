@@ -31,7 +31,9 @@ interface AppState {
   hydrate: () => Promise<void>;
 }
 
-const today = () => new Date().toISOString().split('T')[0];
+import { getCurrentDate } from '../utils/dutySchedule';
+
+const today = () => getCurrentDate();
 
 export const useAppStore = create<AppState>((set, get) => ({
   themePreference: 'system',

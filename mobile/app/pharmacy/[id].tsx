@@ -61,7 +61,17 @@ export default function PharmacyDetailScreen() {
     return calculateDistance(userLocation.lat, userLocation.lng, pharmacy.lat, pharmacy.lng);
   }, [userLocation, pharmacy]);
 
-  if (isLoading) return <LoadingState />;
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: isDark ? '#020617' : '#F0FDF4' }]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <LoadingState message="Φόρτωση στοιχείων..." />
+        </View>
+      </View>
+    );
+  }
+
   if (!pharmacy) return <EmptyState title="Δεν βρέθηκε το φαρμακείο" />;
 
   // Status Colors
@@ -103,7 +113,10 @@ export default function PharmacyDetailScreen() {
             pointerEvents="none" // Pass touches to Pressable
             userInterfaceStyle={isDark ? 'dark' : 'light'}
           >
-            <Marker coordinate={{ latitude: pharmacy.lat, longitude: pharmacy.lng }}>
+            <Marker
+              coordinate={{ latitude: pharmacy.lat, longitude: pharmacy.lng }}
+              tracksViewChanges={false}
+            >
               <Image
                 source={require('../../assets/pin.png')}
                 style={{ width: 44, height: 44 }}

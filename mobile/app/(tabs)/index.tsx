@@ -31,9 +31,9 @@ import type { NearbyPharmacy } from '../../src/types';
 
 const RADIUS_OPTIONS = [
   { label: '1km', value: 1000 },
-  { label: '2km', value: 2000 },
   { label: '5km', value: 5000 },
   { label: '10km', value: 10000 },
+  { label: '15km', value: 15000 },
 ];
 
 type StatusFilter = 'all' | 'open' | 'closed';
@@ -84,10 +84,10 @@ export default function MapScreen() {
     });
   }, [data, searchQuery, statusFilter]);
 
-  if (locLoading) {
+  if (locLoading || (isLoading && !data)) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <LoadingState />
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <LoadingState message="Αναζήτηση φαρμακείων στην περιοχή σας..." />
       </View>
     );
   }

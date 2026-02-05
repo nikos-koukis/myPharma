@@ -44,18 +44,14 @@ export function PharmacyMap({
   const [isInitializing, setIsInitializing] = React.useState(true);
   const hasAutoSelectedRef = useRef(false);
 
-  // Auto-select closest pharmacy on initial load with a slight delay
+  // Auto-select closest pharmacy on initial load
   useEffect(() => {
     if (pharmacies.length > 0 && !hasAutoSelectedRef.current) {
-      const timer = setTimeout(() => {
-        // Pharmacies are already sorted by distance from API
-        const closest = pharmacies[0];
-        onSelectPharmacy(closest);
-        hasAutoSelectedRef.current = true;
-        setIsInitializing(false);
-      }, 2000); // 2s delay as requested to let map initialize
-
-      return () => clearTimeout(timer);
+      // Pharmacies are already sorted by distance from API
+      const closest = pharmacies[0];
+      onSelectPharmacy(closest);
+      hasAutoSelectedRef.current = true;
+      setIsInitializing(false);
     } else if (pharmacies.length === 0) {
       setIsInitializing(false);
     }
@@ -187,7 +183,7 @@ export function PharmacyMap({
 
 
 
-      {/* 2. Pharmacy markers */}
+// 2. Pharmacy markers
       {pharmacies.map((p) => (
         <PharmacyMarker
           key={p.id}
@@ -207,7 +203,7 @@ export function PharmacyMap({
         coordinate={{ latitude: userLat, longitude: userLng }}
         anchor={{ x: 0.5, y: 0.5 }}
         zIndex={10000}
-        tracksViewChanges={true}
+        tracksViewChanges={false}
       >
         <View collapsable={false} style={styles.userLocationOuter}>
           <View collapsable={false} style={styles.userLocationInner}>
@@ -249,7 +245,7 @@ function PharmacyMarker({
       onPress={() => onPress(pharmacy)}
       zIndex={isSelected ? 5000 : 1000}
       anchor={{ x: 0.5, y: 1 }}
-      tracksViewChanges={true}
+      tracksViewChanges={false}
     >
       <View
         collapsable={false}
