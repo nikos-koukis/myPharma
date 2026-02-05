@@ -29,22 +29,6 @@ model Pharmacy {
   @@map("pharmacies")
 }
 
-model ScraperCity {
-  id         String   @id @default(uuid())
-  name       String
-  slug       String
-  url        String
-  prefecture String
-  active     Boolean  @default(true)
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  @@unique([slug])
-  @@index([prefecture])
-  @@index([active])
-  @@map("scraper_cities")
-}
-
 model PharmacyDuty {
   id         String   @id @default(uuid())
   pharmacyId String   @map("pharmacy_id")

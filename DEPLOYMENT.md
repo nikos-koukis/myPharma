@@ -1,19 +1,5 @@
 # myPharma — Deployment Guide
 
-## Server: Hetzner Cloud
-
-### 1. Create Server
-
-- **Console**: [console.hetzner.cloud](https://console.hetzner.cloud)
-- **Location**: Falkenstein (closest to Greece)
-- **Image**: Ubuntu 24.04
-- **Type**: CX22 (2 vCPU, 4GB RAM) — ~€4.50/month
-- **Networking**: Public IPv4 ✅ | Public IPv6 ✅ | Private networks ❌
-- **SSH Key**: Add your public key during creation
-- **Name**: `mypharma`
-
-### 2. SSH Access
-deploy
 ```bash
 # First time — copy your key to the server
 ssh-copy-id -i ~/.ssh/id_ed25519_koukis root@YOUR_SERVER_IP
@@ -26,9 +12,6 @@ Host mypharma
 
 # Then just:
 ssh mypharma
-
-user: deploy
-password: deploy
 ```
 
 ---
@@ -72,9 +55,6 @@ sudo apt install -y docker.io docker-compose-v2
 sudo usermod -aG docker deploy
 newgrp docker
 
-# Playwright system deps
-sudo npx playwright install-deps chromium
-
 # Nginx & Certbot
 sudo apt install -y nginx certbot python3-certbot-nginx
 ```
@@ -101,6 +81,9 @@ services:
       POSTGRES_USER: mypharma
       POSTGRES_PASSWORD: CHANGE_ME_STRONG_PASSWORD
       POSTGRES_DB: mypharma
+      TZ: Europe/Athens
+      POSTGRES_INITDB_ARGS: "--locale=el_GR.UTF-8"
+    command: ["postgres", "-c", "timezone=Europe/Athens"]
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -143,12 +126,7 @@ rsync -avz --exclude node_modules --exclude .env --exclude dist \
 
 ```bash
 cd ~/mypharma/app
-
-# Install dependencies
 npm install
-
-# Install Playwright browser
-npx playwright install chromium
 ```
 
 ### 7. Environment Variables
@@ -173,15 +151,8 @@ npm run db:push
 # Generate Prisma client
 npm run db:generate
 
-# Sync regions (first time only)
-npm run sync-regions
-
-# Verify in Prisma Studio (optional)
-npx prisma studio --schema=src/db/prisma/schema.prisma
-
-ssh -L 5556:localhost:5556 root@65.108.220.96
-or
-ssh -L 5556:localhost:5556 mypharma
+# Run initial scrape
+npm run scrape
 ```
 
 ---
@@ -203,7 +174,7 @@ pm2 start dist/index.js --name mypharma
 
 # Auto-restart on server reboot
 pm2 startup
-# ↑ Run the command it outputs (sudo env PATH=...)
+# Run the command it outputs (sudo env PATH=...)
 pm2 save
 ```
 
@@ -276,17 +247,17 @@ set -e
 SERVER="deploy@YOUR_SERVER_IP"
 REMOTE_DIR="~/mypharma/app"
 
-echo "📦 Syncing files..."
+echo "Syncing files..."
 rsync -avz --exclude node_modules --exclude .env --exclude dist \
   ~/dev/personal/myPharma/backend/ $SERVER:$REMOTE_DIR/
 
-echo "🔧 Installing & building..."
+echo "Installing & building..."
 ssh $SERVER "cd $REMOTE_DIR && npm install && npm run db:generate && npm run build"
 
-echo "🚀 Restarting..."
+echo "Restarting..."
 ssh $SERVER "pm2 restart mypharma"
 
-echo "✅ Deployed!"
+echo "Deployed!"
 ```
 
 ```bash
@@ -301,19 +272,10 @@ chmod +x deploy.sh
 ### Server
 
 ```bash
-# SSH into server
 ssh mypharma
-
-# Check disk space
-df -h
-
-# Check memory
-free -h
-
-# Check running containers
-docker ps
-
-# Docker logs
+df -h                # Check disk space
+free -h              # Check memory
+docker ps            # Check running containers
 docker compose -f ~/mypharma/docker-compose.yml logs -f
 ```
 
@@ -322,34 +284,8 @@ docker compose -f ~/mypharma/docker-compose.yml logs -f
 ```bash
 cd ~/mypharma/app
 
-# Sync all regions/cities from vrisko.gr
-npm run sync-regions
-
-# Sync only a specific prefecture
-npm run sync-regions -- --region ΑΧΑΪΑΣ
-npm run sync-regions -- -r ΑΤΤΙΚΗΣ
-SCRAPER_HEADLESS=true SCRAPER_DISPLAY=99 npm run sync-regions -- -r ΘΕΣΣΑΛΟΝΙΚΗΣ
-
 # Run pharmacy scraper (all cities)
 npm run scrape
-
-# Scrape only a specific city (matches name or slug)
-npm run scrape -- --city patra
-npm run scrape -- --city thessaloniki
-npm run scrape -- -c athina
-
-# Scrape only a specific region/prefecture
-npm run scrape -- --region ΑΧΑΪΑΣ
-npm run scrape -- --region ΑΤΤΙΚΗΣ
-SCRAPER_HEADLESS=false SCRAPER_DISPLAY=0 npm run scrape -- --region ΘΕΣΣΑΛΟΝΙΚΗΣ
-
-# Example: sync + scrape only Patra
-npm run sync-regions -- -r ΑΧΑΪΑΣ && npm run scrape -- --city patra
-
-# Show help
-npm run scrape -- --help
-npm run sync-regions -- --help
-npm run help
 ```
 
 ### Database
@@ -360,15 +296,15 @@ docker exec -it mypharma-postgres-1 psql -U mypharma
 
 # Useful SQL
 SELECT COUNT(*) FROM pharmacies;
-SELECT COUNT(*) FROM scraper_cities WHERE active = true;
 SELECT COUNT(*) FROM pharmacy_duties;
 
 # Prisma Studio (web UI)
 cd ~/mypharma/app
 npx prisma studio --schema=src/db/prisma/schema.prisma
+# Then tunnel from your Mac: ssh -L 5555:localhost:5555 mypharma
 
 # Reset DB (drop all tables + recreate)
-npx prisma db push --force-reset --schema=src/db/prisma/schema.prisma
+npm run db:reset
 ```
 
 ### Migrate Local DB to Production
@@ -376,47 +312,37 @@ npx prisma db push --force-reset --schema=src/db/prisma/schema.prisma
 ```bash
 # 1. Dump local DB
 pg_dump -U mypharma -h localhost mypharma > /tmp/mypharma_dump.sql
-or
-
 
 # 2. Copy to server
 scp /tmp/mypharma_dump.sql mypharma:~/
 
-# 3. Restore on server (make sure schema is up to date first)
+# 3. Restore on server
 ssh mypharma "docker exec -i mypharma-postgres-1 psql -U mypharma mypharma < ~/mypharma_dump.sql"
-
-# Or dump only specific tables (data only)
-pg_dump -U mypharma -h localhost --data-only -t pharmacies -t scraper_cities -t pharmacy_duties mypharma > /tmp/mypharma_data.sql
-scp /tmp/mypharma_data.sql mypharma:~/
-ssh mypharma "docker exec -i mypharma-postgres-1 psql -U mypharma mypharma < ~/mypharma_data.sql"
 ```
 
 ### Redis
 
 ```bash
 # Connect to Redis CLI
-docker exec -it backend-redis-1 redis-cli
+docker exec -it mypharma-redis-1 redis-cli
 
-# Useful commands
-KEYS *
-KEYS pharmacies:*
-TTL pharmacies:some-key
-FLUSHALL          # Clear all cache
-INFO memory       # Memory usage
+KEYS *                # List all keys
+KEYS pharmacies:*     # List pharmacy keys
+FLUSHALL              # Clear all cache
+INFO memory           # Memory usage
 ```
 
 ---
 
 ## Cron Jobs (automatic)
 
-The application runs two cron jobs automatically via `node-cron`:
+The application runs a cron job automatically via `node-cron`:
 
 | Schedule | Job | Description |
 |----------|-----|-------------|
-| `0 6 * * *` | Pharmacy scrape | Daily at 6:00 AM — scrapes pharmacies from vrisko.gr |
-| `0 5 * * 0` | Region sync | Weekly Sunday at 5:00 AM — refreshes city list |
+| `0 6 * * *` | Pharmacy scrape | Daily at 6:00 AM — scrapes all cities from vrisko.gr |
 
-These run inside the Node.js process managed by PM2. No system crontab needed.
+Runs inside the Node.js process managed by PM2. No system crontab needed.
 
 ---
 
@@ -435,15 +361,13 @@ cat ~/backup_20260131.sql | docker exec -i mypharma-postgres-1 psql -U mypharma 
 ### Automated Daily Backup (optional)
 
 ```bash
+mkdir -p ~/backups
+
 # Add to crontab
 crontab -e
 
 # Add this line (daily at 3 AM)
 0 3 * * * docker exec mypharma-postgres-1 pg_dump -U mypharma mypharma | gzip > ~/backups/mypharma_$(date +\%Y\%m\%d).sql.gz
-```
-
-```bash
-mkdir -p ~/backups
 ```
 
 ---

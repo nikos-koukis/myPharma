@@ -24,18 +24,7 @@ export async function pharmacyRoutes(app: FastifyInstance) {
     const { region, city, date } = req.query;
     const dutyDate = date ?? new Date().toISOString().split('T')[0];
 
-    // Resolve city slug to Greek name if needed
-    let resolvedCity = city;
-    if (city) {
-      const scraperCity = await prisma.scraperCity.findFirst({
-        where: { slug: city.toLowerCase() },
-      });
-      if (scraperCity) {
-        resolvedCity = scraperCity.name;
-      }
-    }
-
-    const cacheKey = buildCacheKey('pharmacies', 'on-duty', region ?? resolvedCity ?? 'all', dutyDate);
+    const cacheKey = buildCacheKey('pharmacies', 'on-duty', region ?? city ?? 'all', dutyDate);
     const cached = await getCache(cacheKey);
     if (cached) {
       reply.header('X-Cache', 'HIT');
@@ -46,9 +35,9 @@ export async function pharmacyRoutes(app: FastifyInstance) {
       duties: { some: { dutyDate: new Date(dutyDate) } },
     };
     if (region) where.region = { contains: region, mode: 'insensitive' };
-    if (resolvedCity) where.city = resolvedCity;
+    if (city) where.city = city;
 
-    console.log(`[api] DB query: on-duty pharmacies (region=${region ?? '-'}, city=${resolvedCity ?? '-'}, date=${dutyDate})`);
+    console.log(`[api] DB query: on-duty pharmacies (region=${region ?? '-'}, city=${city ?? '-'}, date=${dutyDate})`);
     const pharmacies = await prisma.pharmacy.findMany({
       where,
       include: {

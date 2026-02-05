@@ -1,63 +1,17 @@
-import { launchBrowser, createPage, randomUserAgent, Browser } from './browser';
-import { discoverCities, syncCitiesToDb, getCitiesFromDb, CityEntry } from './cities';
-import { parsePharmacyPage, PharmacyData } from './parser';
 import { fetchPage } from './curl-fetcher';
-import { parsePharmacyHtml } from './html-parser';
-import { CITY_LIST, CityConfig, getCityUrl, filterCitiesByName, filterCitiesByPrefecture } from './city-list';
+import { parsePharmacyHtml, PharmacyData } from './html-parser';
+import { CITY_LIST, CityConfig, getCityUrl } from './city-list';
 import { geocodeAddress, sleep } from './geocoder';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db/client';
 import { invalidatePattern } from '../cache/redis';
 import { config } from '../config';
 
-function getProxyConfig() {
-  const { server, username, password } = config.proxy;
-  if (!server) return undefined;
-  console.log(`[scraper] Using proxy: ${server}`);
-  return { server, username, password };
-}
-
-export interface ScrapeFilter {
-  city?: string;
-  region?: string;
-}
-
 /**
- * Main scraper entry point - switches between puppeteer and curl modes
+ * Main scraper entry point — scrapes all cities from the hardcoded city list
  */
-export async function runScraper(filter?: ScrapeFilter): Promise<void> {
-  const mode = config.scraper.mode;
-  console.log(`[scraper] Starting scrape in ${mode.toUpperCase()} mode...`);
-
-  if (mode === 'curl') {
-    await runCurlScraper(filter);
-  } else {
-    await runPuppeteerScraper(filter);
-  }
-}
-
-/**
- * Curl-based scraper (lightweight, ~5MB memory)
- * Uses hardcoded city list and cheerio for HTML parsing
- */
-async function runCurlScraper(filter?: ScrapeFilter): Promise<void> {
-  // Get cities from hardcoded list
-  let cities: CityConfig[] = CITY_LIST;
-
-  if (filter) {
-    if (filter.city) {
-      cities = filterCitiesByName(filter.city);
-      console.log(`[scraper] Filtered by city "${filter.city}" → ${cities.length} matches`);
-    } else if (filter.region) {
-      cities = filterCitiesByPrefecture(filter.region);
-      console.log(`[scraper] Filtered by region "${filter.region}" → ${cities.length} matches`);
-    }
-    if (cities.length === 0) {
-      console.log('[scraper] No cities matched the filter. Check city-list.ts for available cities.');
-      return;
-    }
-  }
-
+export async function runScraper(): Promise<void> {
+  const cities = CITY_LIST;
   console.log(`[scraper] Will scrape ${cities.length} cities...`);
 
   let totalScraped = 0;
@@ -70,7 +24,7 @@ async function runCurlScraper(filter?: ScrapeFilter): Promise<void> {
     console.log(`[scraper] Scraping cities [${i + 1}-${batchEnd}/${totalCities}]...`);
 
     const batchResults = await Promise.allSettled(
-      batch.map((city) => scrapeCityCurl(city))
+      batch.map((city) => scrapeCity(city))
     );
 
     for (const result of batchResults) {
@@ -95,9 +49,9 @@ async function runCurlScraper(filter?: ScrapeFilter): Promise<void> {
 }
 
 /**
- * Scrape a city using curl/fetch
+ * Scrape a single city using HTTP fetch + cheerio
  */
-async function scrapeCityCurl(city: CityConfig): Promise<PharmacyData[]> {
+async function scrapeCity(city: CityConfig): Promise<PharmacyData[]> {
   const url = getCityUrl(city);
 
   try {
@@ -109,7 +63,6 @@ async function scrapeCityCurl(city: CityConfig): Promise<PharmacyData[]> {
 
     const pharmacies = parsePharmacyHtml(html, city.name, city.prefecture);
 
-    // Set prefecture as region if parser didn't find one
     const enriched = pharmacies.map((p) => ({
       ...p,
       region: p.region || city.prefecture,
@@ -123,144 +76,7 @@ async function scrapeCityCurl(city: CityConfig): Promise<PharmacyData[]> {
 }
 
 /**
- * Puppeteer-based scraper (full browser, ~500MB memory)
- * Uses DB cities or discovers them from vrisko.gr
- */
-async function runPuppeteerScraper(filter?: ScrapeFilter): Promise<void> {
-  const proxy = getProxyConfig();
-  const browser = await launchBrowser({
-    headless: config.scraper.headless,
-    display: config.scraper.display,
-    proxy,
-  });
-
-  try {
-    // Get cities from DB or discover
-    let cities: CityEntry[];
-    const dbCities = await getCitiesFromDb();
-
-    if (filter) {
-      cities = dbCities;
-      if (filter.city) {
-        const q = filter.city.toLowerCase();
-        cities = cities.filter((c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q));
-        console.log(`[scraper] Filtered by city "${filter.city}" → ${cities.length} matches`);
-      } else if (filter.region) {
-        const q = filter.region.toLowerCase();
-        cities = cities.filter((c) => c.prefecture.toLowerCase().includes(q));
-        console.log(`[scraper] Filtered by region "${filter.region}" → ${cities.length} matches`);
-      }
-      if (cities.length === 0) {
-        console.log('[scraper] No cities matched the filter. Run "npm run sync-regions" first to populate the city list.');
-        return;
-      }
-    } else if (dbCities.length > 0 && !config.scraper.scrapeRegions) {
-      cities = dbCities;
-    } else {
-      console.log('[scraper] No cities in DB or scrapeRegions=true, discovering from vrisko.gr...');
-      const discoveryPage = await createPage(browser, {
-        userAgent: randomUserAgent(),
-        viewport: { width: 1920, height: 1080 },
-        proxy: proxy ? { username: proxy.username, password: proxy.password } : undefined,
-      });
-      await syncCitiesToDb(discoveryPage);
-      await discoveryPage.close();
-      cities = await getCitiesFromDb();
-    }
-
-    console.log(`[scraper] Will scrape ${cities.length} cities...`);
-
-    let totalScraped = 0;
-    let saved = 0;
-
-    const totalCities = cities.length;
-    for (let i = 0; i < totalCities; i += config.scraper.concurrency) {
-      const batch = cities.slice(i, i + config.scraper.concurrency);
-      const batchEnd = Math.min(i + config.scraper.concurrency, totalCities);
-      console.log(`[scraper] Scraping cities [${i + 1}-${batchEnd}/${totalCities}]...`);
-
-      const batchResults = await Promise.allSettled(
-        batch.map((city) => scrapeCityPuppeteer(browser, city, proxy))
-      );
-
-      for (const result of batchResults) {
-        if (result.status !== 'fulfilled') {
-          console.error(`[scraper] Batch error:`, result.reason);
-          continue;
-        }
-
-        const pharmacies = result.value;
-        totalScraped += pharmacies.length;
-
-        for (const data of pharmacies) {
-          saved += await savePharmacy(data);
-        }
-      }
-    }
-
-    console.log(`[scraper] Scraped ${totalScraped}, saved ${saved} pharmacies`);
-    await invalidatePattern('pharmacies:*');
-    console.log('[scraper] Cache invalidated');
-  } finally {
-    await browser.close();
-  }
-
-  console.log('[scraper] Done');
-}
-
-/**
- * Scrape a city using Puppeteer
- */
-async function scrapeCityPuppeteer(
-  browser: Browser,
-  city: CityEntry,
-  proxy?: { server: string; username: string; password: string }
-): Promise<PharmacyData[]> {
-  const url = city.url.startsWith('http') ? city.url : `https://www.vrisko.gr${city.url}`;
-  let attempts = 0;
-
-  while (attempts <= config.scraper.retries) {
-    const page = await createPage(browser, {
-      userAgent: randomUserAgent(),
-      viewport: { width: 1920, height: 1080 },
-      proxy: proxy ? { username: proxy.username, password: proxy.password } : undefined,
-    });
-
-    try {
-      console.log(`[scraper] Scraping ${city.name} (${city.prefecture})${attempts > 0 ? ` (retry ${attempts}/${config.scraper.retries})` : ''}...`);
-      console.log(`[scraper] URL: ${url}`);
-
-      const response = await page.goto(url, {
-        waitUntil: 'networkidle2',
-        timeout: config.scraper.timeout
-      });
-      console.log(`[scraper] Response: ${response?.status()} ${response?.statusText()}`);
-
-      const pharmacies = await parsePharmacyPage(page, city.name);
-
-      const enriched = pharmacies.map((p) => ({
-        ...p,
-        region: p.region || city.prefecture,
-      }));
-
-      console.log(`[scraper] Found ${enriched.length} pharmacies in ${city.name}`);
-      return enriched;
-    } catch (err) {
-      attempts++;
-      if (attempts > config.scraper.retries) {
-        console.error(`[scraper] Failed to scrape ${city.name} after ${config.scraper.retries} retries:`, err);
-        return [];
-      }
-    } finally {
-      await page.close();
-    }
-  }
-
-  return [];
-}
-
-/**
- * Save pharmacy data to database (shared between modes)
+ * Save pharmacy data to database
  */
 async function savePharmacy(data: PharmacyData): Promise<number> {
   try {

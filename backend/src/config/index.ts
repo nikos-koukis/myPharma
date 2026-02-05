@@ -35,22 +35,11 @@ export const config = {
   },
 
   scraper: {
-    mode: env('SCRAPER_MODE', 'curl') as 'puppeteer' | 'curl', // 'curl' for lightweight, 'puppeteer' for full browser
-    pharmacyCron: '0 6 * * *',          // Daily at 6 AM — scrape pharmacies
-    regionCron: '0 5 * * 0',            // Weekly Sunday at 5 AM — refresh regions
-    scrapeRegions: false,                // If true, daily cron also refreshes regions
+    pharmacyCron: '0 6 * * *',          // Daily at 6 AM
     concurrency: 3,
     timeout: 30000,
     retries: 3,
     baseUrl: 'https://www.vrisko.gr/efimeries-farmakeion',
-    headless: env('SCRAPER_HEADLESS', 'true') === 'true',  // Set to false to see browser
-    display: process.env.SCRAPER_DISPLAY ? envInt('SCRAPER_DISPLAY', 0) : undefined, // X11 display (e.g., 0 for :0)
-  },
-
-  proxy: {
-    server: env('PROXY_SERVER', ''),
-    username: env('PROXY_USERNAME', ''),
-    password: env('PROXY_PASSWORD', ''),
   },
 
   geocoder: {
