@@ -395,7 +395,7 @@ ssh mypharma "docker exec -i mypharma-postgres-1 psql -U mypharma mypharma < ~/m
 
 ```bash
 # Connect to Redis CLI
-docker exec -it mypharma-redis-1 redis-cli
+docker exec -it backend-redis-1 redis-cli
 
 # Useful commands
 KEYS *
