@@ -49,7 +49,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       userLocation: loc,
       selectedPrefecture: loc.prefecture,
-      selectedCity: loc.city,
+      selectedCity: null, // Always default to the larger area (Prefecture) for a full list
       locationDetected: true,
     });
   },
@@ -78,7 +78,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         set({
           userLocation: loc,
           selectedPrefecture: loc.prefecture,
-          selectedCity: loc.city,
+          selectedCity: null, // Always default to the larger area for a full list
           locationDetected: true,
         });
       } catch (e) {
