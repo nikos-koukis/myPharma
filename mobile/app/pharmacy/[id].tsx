@@ -136,7 +136,7 @@ export default function PharmacyDetailScreen() {
 
       {/* Main Content (Layer 1 - ScrollView) */}
       <ScrollView
-        contentContainerStyle={[styles.contentContainer, { paddingTop: Dimensions.get('window').height * 0.55 }]}
+        contentContainerStyle={[styles.contentContainer, { paddingTop: Dimensions.get('window').height * 0.42 }]}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
