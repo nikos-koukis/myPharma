@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Platform,
   Image,
   Alert,
+  ScrollView,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { openDirections } from '../../src/utils/linking';
@@ -84,6 +85,13 @@ export default function MapScreen() {
     });
   }, [data, searchQuery, statusFilter]);
 
+  // Clear selection if radius change leads to no results
+  useEffect(() => {
+    if (filteredData.length === 0 && selectedPharmacy) {
+      setSelectedPharmacy(null);
+    }
+  }, [filteredData, selectedRadius]);
+
   if (locLoading || (isLoading && !data)) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
@@ -106,6 +114,44 @@ export default function MapScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Map View Controls */}
+      {!showList && (
+        <View style={[styles.floatingControls, { top: insets.top + 16 }]}>
+          {/* Bottom Row: Radius Filters */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.radiusScroll}
+          >
+            {RADIUS_OPTIONS.map((option) => (
+              <Pressable
+                key={option.value}
+                onPress={() => setSelectedRadius(option.value)}
+              >
+                <BlurView
+                  intensity={selectedRadius === option.value ? 100 : 60}
+                  tint={isDark ? 'dark' : 'light'}
+                  style={[
+                    styles.radiusChip,
+                    {
+                      borderColor: selectedRadius === option.value ? colors.primary : colors.glassBorder,
+                      backgroundColor: selectedRadius === option.value ? colors.primary : 'transparent'
+                    }
+                  ]}
+                >
+                  <Text style={[
+                    styles.radiusText,
+                    { color: selectedRadius === option.value ? '#000000' : colors.text }
+                  ]}>
+                    {option.label}
+                  </Text>
+                </BlurView>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       {/* Full Screen Map */}
       {lat && lng && !showList && (
         <View style={styles.mapWrapper}>
@@ -639,5 +685,67 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.2,
+  },
+  floatingControls: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  topControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  searchBlur: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  listToggleIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radiusScroll: {
+    gap: 8,
+    paddingRight: 16,
+  },
+  radiusChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  radiusText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  viewToggleFloating: {
+    alignItems: 'flex-end',
+    marginBottom: 8,
+  },
+  floatingCircleBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
   },
 });
