@@ -5,9 +5,6 @@ services:
       POSTGRES_USER: mypharma
       POSTGRES_PASSWORD: mypharma
       POSTGRES_DB: mypharma
-      TZ: Europe/Athens
-      POSTGRES_INITDB_ARGS: "--locale=el_GR.UTF-8"
-    command: ["postgres", "-c", "timezone=Europe/Athens"]
     ports:
       - "5432:5432"
     volumes:

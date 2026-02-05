@@ -70,38 +70,6 @@ mkdir -p ~/mypharma
 cd ~/mypharma
 ```
 
-Create `docker-compose.yml`:
-
-```yaml
-services:
-  postgres:
-    image: postgis/postgis:16-3.4
-    restart: always
-    environment:
-      POSTGRES_USER: mypharma
-      POSTGRES_PASSWORD: CHANGE_ME_STRONG_PASSWORD
-      POSTGRES_DB: mypharma
-      TZ: Europe/Athens
-      POSTGRES_INITDB_ARGS: "--locale=el_GR.UTF-8"
-    command: ["postgres", "-c", "timezone=Europe/Athens"]
-    ports:
-      - "127.0.0.1:5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    restart: always
-    ports:
-      - "127.0.0.1:6379:6379"
-    volumes:
-      - redisdata:/data
-
-volumes:
-  pgdata:
-  redisdata:
-```
-
 ```bash
 docker compose up -d
 ```
