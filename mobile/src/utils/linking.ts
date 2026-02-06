@@ -4,7 +4,7 @@ import type { Pharmacy, NearbyPharmacy } from '../types';
 export function openDirections(lat: number, lng: number, label?: string) {
   const encoded = encodeURIComponent(label ?? '');
   const url = Platform.select({
-    ios: `https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d&q=${encoded}`,
+    ios: `maps://?daddr=${lat},${lng}&dirflg=d&q=${encoded}`,
     android: `google.navigation:q=${lat},${lng}`,
   });
   if (url) Linking.openURL(url);
