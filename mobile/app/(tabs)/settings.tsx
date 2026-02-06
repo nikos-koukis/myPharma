@@ -73,7 +73,7 @@ export default function SettingsScreen() {
           <View style={[styles.logoContainer, { backgroundColor: colors.primaryLight }]}>
             <PharmacyIcon size={40} color={colors.primary} />
           </View>
-          <Text style={[styles.appName, { color: colors.text }]}>PharmaGo</Text>
+          <Text style={[styles.appName, { color: colors.text }]}>myPharma</Text>
           <Text style={[styles.appTagline, { color: colors.textTertiary }]}>
             {t('tagline')}
           </Text>
@@ -201,7 +201,7 @@ export default function SettingsScreen() {
             showChevron
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              Linking.openURL('mailto:support@pharmago.gr');
+              Linking.openURL('mailto:support@mypharma.gr');
             }}
           />
         </View>

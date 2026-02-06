@@ -1,6 +1,6 @@
-# PharmaGo Mobile
+# myPharma Mobile
 
-**PharmaGo** is a premium, cross-platform mobile application built with React Native and Expo, designed to help users find on-duty pharmacies in Greece instantly.
+**myPharma** is a premium, cross-platform mobile application built with React Native and Expo, designed to help users find on-duty pharmacies in Greece instantly.
 
 ## Key Features
 

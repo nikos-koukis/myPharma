@@ -2,14 +2,14 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'PharmaGo',
-  slug: 'pharmago',
+  name: 'myPharma',
+  slug: 'mypharma',
   version: '1.1.0',
   orientation: 'portrait',
   icon: './assets/appiconph.png',
   userInterfaceStyle: 'automatic',
   newArchEnabled: true,
-  scheme: 'pharmago',
+  scheme: 'mypharma',
   splash: {
     image: './assets/splash-icon.png',
     resizeMode: 'contain',
