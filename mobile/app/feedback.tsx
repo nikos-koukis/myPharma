@@ -10,6 +10,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -101,11 +103,12 @@ export default function FeedbackScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
           {/* Header */}
           <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
             <Pressable
@@ -168,6 +171,9 @@ export default function FeedbackScreen() {
               value={message}
               onChangeText={setMessage}
               maxLength={2000}
+              returnKeyType="done"
+              blurOnSubmit={true}
+              onSubmitEditing={Keyboard.dismiss}
             />
             <Text style={[styles.charCount, { color: colors.textTertiary }]}>
               {message.length}/2000
@@ -186,6 +192,8 @@ export default function FeedbackScreen() {
               autoCorrect={false}
               value={email}
               onChangeText={setEmail}
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
             />
           </View>
 
@@ -208,7 +216,15 @@ export default function FeedbackScreen() {
               </>
             )}
           </Pressable>
-        </ScrollView>
+
+          {/* Helper text */}
+          {message.trim().length > 0 && message.trim().length < 10 && (
+            <Text style={[styles.helperText, { color: colors.textTertiary }]}>
+              {10 - message.trim().length} χαρακτήρες ακόμα...
+            </Text>
+          )}
+          </ScrollView>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </View>
   );
@@ -303,5 +319,10 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  helperText: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 12,
   },
 });
