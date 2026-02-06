@@ -49,4 +49,11 @@ export const scraperLastRunPharmacies = new client.Gauge({
   help: 'Number of pharmacies found in last scraper run',
 });
 
+// Feedback metrics
+export const feedbackTotal = new client.Counter({
+  name: 'mypharma_feedback_total',
+  help: 'Total feedback submissions',
+  labelNames: ['type', 'platform'] as const,
+});
+
 export { client };

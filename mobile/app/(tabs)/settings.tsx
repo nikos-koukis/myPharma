@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert, ScrollView, Animated, Linking } from 'react-native';
+import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -14,7 +15,11 @@ const APP_VERSION = '1.1.0';
 export default function SettingsScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+<<<<<<< Updated upstream
   const { t, language } = useTranslation();
+=======
+  const router = useRouter();
+>>>>>>> Stashed changes
   const themePreference = useAppStore((s) => s.themePreference);
   const setThemePreference = useAppStore((s) => s.setThemePreference);
   const setLanguage = useAppStore((s) => s.setLanguage);
@@ -189,6 +194,19 @@ export default function SettingsScreen() {
             showChevron
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <SettingsRow
+            icon="chatbox-ellipses"
+            iconColor="#10B981"
+            iconBg="#D1FAE5"
+            label="Στείλε Σχόλιο"
+            colors={colors}
+            showChevron
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/feedback');
             }}
           />
           <View style={[styles.divider, { backgroundColor: colors.border }]} />

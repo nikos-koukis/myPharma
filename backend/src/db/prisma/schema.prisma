@@ -83,3 +83,19 @@ model ScrapeCityResult {
   @@index([scrapedAt])
   @@map("scrape_city_results")
 }
+
+model Feedback {
+  id        String   @id @default(uuid())
+  type      String   // "bug" | "feature" | "general" | "pharmacy_error"
+  message   String
+  email     String?  // Optional contact email
+  appVersion String? @map("app_version")
+  platform  String?  // "ios" | "android"
+  deviceInfo String? @map("device_info")
+  pharmacyId String? @map("pharmacy_id") // If reporting a pharmacy issue
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([type])
+  @@index([createdAt])
+  @@map("feedback")
+}

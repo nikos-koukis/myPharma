@@ -5,6 +5,7 @@ import swaggerUi from '@fastify/swagger-ui';
 import { config } from '../config';
 import { healthRoutes } from './routes/health';
 import { pharmacyRoutes } from './routes/pharmacies';
+import { feedbackRoutes } from './routes/feedback';
 import { client, httpRequestDuration, httpRequestsTotal } from '../metrics';
 
 export async function createServer() {
@@ -24,6 +25,7 @@ export async function createServer() {
         { name: 'Health', description: 'Health check endpoints' },
         { name: 'Pharmacies', description: 'Pharmacy data and duty schedules' },
         { name: 'Regions', description: 'Prefectures and regions' },
+        { name: 'Feedback', description: 'User feedback submission' },
       ],
     },
   });
@@ -68,6 +70,7 @@ export async function createServer() {
 
   await app.register(healthRoutes);
   await app.register(pharmacyRoutes);
+  await app.register(feedbackRoutes);
 
   await app.ready();
   app.swagger();
