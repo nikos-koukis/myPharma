@@ -77,7 +77,7 @@ export async function pharmacyRoutes(app: FastifyInstance) {
   }, async (req, reply) => {
     const lat = parseFloat(req.query.lat);
     const lng = parseFloat(req.query.lng);
-    const radius = parseInt(req.query.radius ?? '2000', 10);
+    const radius = parseInt(req.query.radius ?? '50000', 10); // Default to 50km
     const dutyDate = req.query.date ?? new Date().toISOString().split('T')[0];
 
     if (isNaN(lat) || isNaN(lng)) {
@@ -116,6 +116,7 @@ export async function pharmacyRoutes(app: FastifyInstance) {
             ${radius}
           )
         ORDER BY distance_meters ASC
+        LIMIT 50
       `;
     } catch {
       // Fallback: Haversine formula without PostGIS
@@ -136,13 +137,19 @@ export async function pharmacyRoutes(app: FastifyInstance) {
         ) sub
         WHERE distance_meters <= ${radius}
         ORDER BY distance_meters ASC
+        LIMIT 50
       `;
     }
 
-    console.log(`[api] DB result: ${(pharmacies as unknown[]).length} nearby pharmacies found`);
-    await setCache(cacheKey, pharmacies);
+    const results = (pharmacies as any[]).map(p => ({
+      ...p,
+      distance_meters: Number(p.distance_meters)
+    }));
+
+    console.log(`[api] DB result: ${results.length} nearby pharmacies found`);
+    await setCache(cacheKey, results);
     reply.header('X-Cache', 'MISS');
-    return pharmacies;
+    return results;
   });
 
   // GET /api/pharmacies/:id

@@ -324,11 +324,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   name: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '800',
-    letterSpacing: -0.8,
-    marginBottom: 6,
-    lineHeight: 34,
+    letterSpacing: -0.5,
+    marginBottom: 4,
+    lineHeight: 28,
   },
   region: {
     fontSize: 16,

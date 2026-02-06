@@ -123,8 +123,8 @@ export function PharmacyMap({
         edgePadding: { top: 80, right: 80, bottom: 350, left: 80 },
         animated: true,
       });
-    } else if (hasAutoSelectedRef.current) {
-      // Only zoom out if we had a selection before (user deselected)
+    } else if (hasAutoSelectedRef.current && pharmacies.length > 0) {
+      // Only zoom out if we had a selection before (user deselected) and we have pharmacies to show
       const coordinates = [
         { latitude: userLat, longitude: userLng },
         ...pharmacies.map(p => ({ latitude: p.lat, longitude: p.lng }))

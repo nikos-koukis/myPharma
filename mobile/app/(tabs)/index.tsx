@@ -35,6 +35,7 @@ const RADIUS_OPTIONS = [
   { label: '5km', value: 5000 },
   { label: '10km', value: 10000 },
   { label: '15km', value: 15000 },
+  { label: '50km', value: 50000 },
 ];
 
 type StatusFilter = 'all' | 'open' | 'closed';
@@ -52,7 +53,7 @@ export default function MapScreen() {
   const selectedDate = useAppStore((s) => s.selectedDate);
   const [searchQuery, setSearchQuery] = useState('');
   const [showList, setShowList] = useState(false);
-  const [selectedRadius, setSelectedRadius] = useState(5000);
+  const [selectedRadius, setSelectedRadius] = useState(50000); // Default to 50km
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
   const [selectedPharmacy, setSelectedPharmacy] = useState<NearbyPharmacy | null>(null);
 

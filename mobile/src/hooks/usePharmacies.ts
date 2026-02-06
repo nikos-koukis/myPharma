@@ -81,6 +81,7 @@ export function useNearbyPharmacies(params: {
     enabled,
     staleTime: NEARBY_STALE_TIME,
     gcTime: DUTY_CACHE_TIME(),
+    placeholderData: (previousData) => previousData,
   });
 }
 
