@@ -245,3 +245,28 @@ export function getPrefectures(): string[] {
     a.localeCompare(b, 'el')
   );
 }
+
+/**
+ * Get filtered city list based on SCRAPE_PREFECTURES env var.
+ *
+ * Usage:
+ *   SCRAPE_PREFECTURES=ΑΧΑΪΑΣ npm run scrape           # Single prefecture
+ *   SCRAPE_PREFECTURES=ΑΧΑΪΑΣ,ΑΤΤΙΚΗΣ npm run scrape   # Multiple prefectures
+ *   npm run scrape                                      # All cities (default)
+ *
+ * You can also use partial matches:
+ *   SCRAPE_PREFECTURES=ΑΧΑ npm run scrape              # Matches ΑΧΑΪΑΣ
+ */
+export function getActiveCities(): CityConfig[] {
+  const filter = process.env.SCRAPE_PREFECTURES?.trim();
+
+  if (!filter) {
+    return CITY_LIST;
+  }
+
+  const prefectures = filter.split(',').map(p => p.trim().toUpperCase());
+
+  return CITY_LIST.filter(city =>
+    prefectures.some(p => city.prefecture.toUpperCase().includes(p))
+  );
+}

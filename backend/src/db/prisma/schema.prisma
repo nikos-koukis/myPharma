@@ -42,3 +42,44 @@ model PharmacyDuty {
   @@index([dutyDate])
   @@map("pharmacy_duties")
 }
+
+model ScrapeRun {
+  id              String             @id @default(uuid())
+  startedAt       DateTime           @default(now()) @map("started_at")
+  finishedAt      DateTime?          @map("finished_at")
+  status          String             @default("running") // "running" | "completed" | "failed"
+  totalCities     Int                @default(0) @map("total_cities")
+  successCities   Int                @default(0) @map("success_cities")
+  failedCities    Int                @default(0) @map("failed_cities")
+  totalPharmacies Int                @default(0) @map("total_pharmacies")
+  totalDuties     Int                @default(0) @map("total_duties")
+  durationMs      Int?               @map("duration_ms")
+  errorMessage    String?            @map("error_message")
+  cityResults     ScrapeCityResult[]
+
+  @@index([startedAt])
+  @@index([status])
+  @@map("scrape_runs")
+}
+
+model ScrapeCityResult {
+  id              String   @id @default(uuid())
+  scrapeRunId     String   @map("scrape_run_id")
+  city            String
+  prefecture      String
+  status          String   // "success" | "failed" | "no_data"
+  url             String?  // The URL that was scraped
+  pharmaciesFound Int      @default(0) @map("pharmacies_found")
+  dutiesFound     Int      @default(0) @map("duties_found")
+  durationMs      Int      @default(0) @map("duration_ms")
+  httpStatus      Int?     @map("http_status")
+  errorMessage    String?  @map("error_message")
+  scrapedAt       DateTime @default(now()) @map("scraped_at")
+
+  scrapeRun ScrapeRun @relation(fields: [scrapeRunId], references: [id], onDelete: Cascade)
+
+  @@index([scrapeRunId])
+  @@index([city])
+  @@index([scrapedAt])
+  @@map("scrape_city_results")
+}

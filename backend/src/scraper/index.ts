@@ -1,6 +1,6 @@
 import { fetchPage } from './curl-fetcher';
 import { parsePharmacyHtml, PharmacyData } from './html-parser';
-import { CITY_LIST, CityConfig, getCityUrl } from './city-list';
+import { getActiveCities, CityConfig, getCityUrl } from './city-list';
 import { geocodeAddress, sleep } from './geocoder';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db/client';
@@ -11,67 +11,143 @@ import { config } from '../config';
  * Main scraper entry point — scrapes all cities from the hardcoded city list
  */
 export async function runScraper(): Promise<void> {
-  const cities = CITY_LIST;
+  const cities = getActiveCities();
   console.log(`[scraper] Will scrape ${cities.length} cities...`);
 
+  const scrapeRun = await prisma.scrapeRun.create({
+    data: {
+      totalCities: cities.length,
+      status: 'running',
+    },
+  });
+
+  const startTime = Date.now();
   let totalScraped = 0;
   let saved = 0;
+  let successCities = 0;
+  let failedCities = 0;
 
-  const totalCities = cities.length;
-  for (let i = 0; i < totalCities; i += config.scraper.concurrency) {
-    const batch = cities.slice(i, i + config.scraper.concurrency);
-    const batchEnd = Math.min(i + config.scraper.concurrency, totalCities);
-    console.log(`[scraper] Scraping cities [${i + 1}-${batchEnd}/${totalCities}]...`);
+  try {
+    const totalCities = cities.length;
+    for (let i = 0; i < totalCities; i += config.scraper.concurrency) {
+      const batch = cities.slice(i, i + config.scraper.concurrency);
+      const batchEnd = Math.min(i + config.scraper.concurrency, totalCities);
+      console.log(`[scraper] Scraping cities [${i + 1}-${batchEnd}/${totalCities}]...`);
 
-    const batchResults = await Promise.allSettled(
-      batch.map((city) => scrapeCity(city))
-    );
+      const batchResults = await Promise.allSettled(
+        batch.map((city) => scrapeCityTracked(city, scrapeRun.id))
+      );
 
-    for (const result of batchResults) {
-      if (result.status !== 'fulfilled') {
-        console.error(`[scraper] Batch error:`, result.reason);
-        continue;
-      }
-
-      const pharmacies = result.value;
-      totalScraped += pharmacies.length;
-
-      for (const data of pharmacies) {
-        saved += await savePharmacy(data);
+      for (const result of batchResults) {
+        if (result.status === 'fulfilled') {
+          totalScraped += result.value.pharmaciesFound;
+          saved += result.value.dutiesSaved;
+          if (result.value.success) successCities++;
+          else failedCities++;
+        } else {
+          failedCities++;
+          console.error(`[scraper] Batch error:`, result.reason);
+        }
       }
     }
-  }
 
-  console.log(`[scraper] Scraped ${totalScraped}, saved ${saved} pharmacies`);
-  await invalidatePattern('pharmacies:*');
-  console.log('[scraper] Cache invalidated');
-  console.log('[scraper] Done');
+    await prisma.scrapeRun.update({
+      where: { id: scrapeRun.id },
+      data: {
+        status: 'completed',
+        finishedAt: new Date(),
+        successCities,
+        failedCities,
+        totalPharmacies: totalScraped,
+        totalDuties: saved,
+        durationMs: Date.now() - startTime,
+      },
+    });
+
+    console.log(`[scraper] Scraped ${totalScraped}, saved ${saved} pharmacies`);
+    await invalidatePattern('pharmacies:*');
+    console.log('[scraper] Cache invalidated');
+    console.log('[scraper] Done');
+  } catch (err) {
+    await prisma.scrapeRun.update({
+      where: { id: scrapeRun.id },
+      data: {
+        status: 'failed',
+        finishedAt: new Date(),
+        successCities,
+        failedCities,
+        totalPharmacies: totalScraped,
+        totalDuties: saved,
+        durationMs: Date.now() - startTime,
+        errorMessage: err instanceof Error ? err.message : String(err),
+      },
+    });
+    throw err;
+  }
+}
+
+interface CityScrapResult {
+  pharmaciesFound: number;
+  dutiesSaved: number;
+  success: boolean;
 }
 
 /**
- * Scrape a single city using HTTP fetch + cheerio
+ * Scrape a single city with tracking — records results to scrape_city_results
  */
-async function scrapeCity(city: CityConfig): Promise<PharmacyData[]> {
+async function scrapeCityTracked(city: CityConfig, scrapeRunId: string): Promise<CityScrapResult> {
+  const cityStart = Date.now();
   const url = getCityUrl(city);
 
   try {
     console.log(`[scraper] Scraping ${city.name} (${city.prefecture})...`);
     console.log(`[scraper] URL: ${url}`);
 
-    const { html, status } = await fetchPage(url, config.scraper.retries);
-    console.log(`[scraper] Response: ${status}`);
+    const { html, status: httpStatus } = await fetchPage(url, config.scraper.retries);
+    console.log(`[scraper] Response: ${httpStatus}`);
 
     const pharmacies = parsePharmacyHtml(html, city.name, city.prefecture);
-
     const enriched = pharmacies.map((p) => ({
       ...p,
       region: p.region || city.prefecture,
     }));
 
-    return enriched;
+    let dutiesSaved = 0;
+    for (const data of enriched) {
+      dutiesSaved += await savePharmacy(data);
+    }
+
+    await prisma.scrapeCityResult.create({
+      data: {
+        scrapeRunId,
+        city: city.name,
+        prefecture: city.prefecture,
+        status: enriched.length > 0 ? 'success' : 'no_data',
+        url,
+        pharmaciesFound: enriched.length,
+        dutiesFound: dutiesSaved,
+        durationMs: Date.now() - cityStart,
+        httpStatus,
+      },
+    });
+
+    return { pharmaciesFound: enriched.length, dutiesSaved, success: true };
   } catch (err) {
     console.error(`[scraper] Failed to scrape ${city.name}:`, err);
-    return [];
+
+    await prisma.scrapeCityResult.create({
+      data: {
+        scrapeRunId,
+        city: city.name,
+        prefecture: city.prefecture,
+        status: 'failed',
+        url,
+        durationMs: Date.now() - cityStart,
+        errorMessage: err instanceof Error ? err.message : String(err),
+      },
+    });
+
+    return { pharmaciesFound: 0, dutiesSaved: 0, success: false };
   }
 }
 

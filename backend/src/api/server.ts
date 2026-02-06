@@ -5,6 +5,7 @@ import swaggerUi from '@fastify/swagger-ui';
 import { config } from '../config';
 import { healthRoutes } from './routes/health';
 import { pharmacyRoutes } from './routes/pharmacies';
+import { client, httpRequestDuration, httpRequestsTotal } from '../metrics';
 
 export async function createServer() {
   const app = Fastify({ logger: true });
@@ -31,9 +32,38 @@ export async function createServer() {
     routePrefix: '/docs',
   });
 
+  // Request timing hooks
+  app.addHook('onRequest', (req, _reply, done) => {
+    (req as any).__startTime = process.hrtime.bigint();
+    done();
+  });
+
+  app.addHook('onResponse', (req, reply, done) => {
+    const start = (req as any).__startTime as bigint | undefined;
+    if (start) {
+      const durationNs = Number(process.hrtime.bigint() - start);
+      const durationSec = durationNs / 1e9;
+      const route = req.routeOptions?.url || req.url;
+      const labels = {
+        method: req.method,
+        route,
+        status_code: String(reply.statusCode),
+      };
+      httpRequestDuration.observe(labels, durationSec);
+      httpRequestsTotal.inc(labels);
+    }
+    done();
+  });
+
   // Root endpoint
   app.get('/', { schema: { hide: true } }, async () => {
     return { name: 'myPharma API', version: '1.0.0', docs: '/docs' };
+  });
+
+  // Prometheus metrics endpoint
+  app.get('/metrics', { schema: { hide: true } }, async (_req, reply) => {
+    reply.header('Content-Type', client.register.contentType);
+    return client.register.metrics();
   });
 
   await app.register(healthRoutes);

@@ -7,7 +7,7 @@ ssh-copy-id -i ~/.ssh/id_ed25519_koukis root@YOUR_SERVER_IP
 # Add to ~/.ssh/config for easy access
 Host mypharma
     HostName YOUR_SERVER_IP
-    User deploy
+    User root
     IdentityFile ~/.ssh/id_ed25519_koukis
 
 # Then just:
@@ -26,37 +26,25 @@ ssh root@YOUR_SERVER_IP
 # Update system
 apt update && apt upgrade -y
 
-# Create deploy user
-adduser deploy
-usermod -aG sudo deploy
-
-# Copy SSH key to deploy user
-rsync --archive --chown=deploy:deploy ~/.ssh /home/deploy
-
 # Firewall
 ufw allow OpenSSH
 ufw allow 80
 ufw allow 443
 ufw enable
-
-# Switch to deploy user
-su - deploy
 ```
 
 ### 4. Install Dependencies
 
 ```bash
 # Node.js 22
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+apt install -y nodejs
 
 # Docker & Docker Compose
-sudo apt install -y docker.io docker-compose-v2
-sudo usermod -aG docker deploy
-newgrp docker
+apt install -y docker.io docker-compose-v2
 
 # Nginx & Certbot
-sudo apt install -y nginx certbot python3-certbot-nginx
+apt install -y nginx certbot python3-certbot-nginx
 ```
 
 ---
@@ -66,11 +54,7 @@ sudo apt install -y nginx certbot python3-certbot-nginx
 ### 5. Docker Compose (PostgreSQL + Redis)
 
 ```bash
-mkdir -p ~/mypharma
-cd ~/mypharma
-```
-
-```bash
+cd ~/myPharma/backend
 docker compose up -d
 ```
 
@@ -87,20 +71,20 @@ docker compose up -d
 ```bash
 rsync -avz --exclude node_modules --exclude .env --exclude dist \
   ~/dev/personal/myPharma/backend/ \
-  deploy@YOUR_SERVER_IP:~/mypharma/app/
+  root@YOUR_SERVER_IP:~/myPharma/backend/
 ```
 
 **On the server:**
 
 ```bash
-cd ~/mypharma/app
+cd ~/myPharma/backend
 npm install
 ```
 
 ### 7. Environment Variables
 
 ```bash
-cat > ~/mypharma/app/.env << 'EOF'
+cat > ~/myPharma/backend/.env << 'EOF'
 DATABASE_URL=postgresql://mypharma:CHANGE_ME_STRONG_PASSWORD@localhost:5432/mypharma
 REDIS_URL=redis://localhost:6379
 PORT=3000
@@ -111,7 +95,7 @@ EOF
 ### 8. Initialize Database
 
 ```bash
-cd ~/mypharma/app
+cd ~/myPharma/backend
 
 # Push schema to DB
 npm run db:push
@@ -130,9 +114,9 @@ npm run scrape
 ### 9. Setup PM2
 
 ```bash
-sudo npm install -g pm2
+npm install -g pm2
 
-cd ~/mypharma/app
+cd ~/myPharma/backend
 
 # Build TypeScript
 npm run build
@@ -142,7 +126,7 @@ pm2 start dist/index.js --name mypharma
 
 # Auto-restart on server reboot
 pm2 startup
-# Run the command it outputs (sudo env PATH=...)
+# Run the command it outputs
 pm2 save
 ```
 
@@ -165,7 +149,7 @@ pm2 save
 ### 10. Configure Nginx
 
 ```bash
-sudo nano /etc/nginx/sites-available/mypharma
+nano /etc/nginx/sites-available/mypharma
 ```
 
 ```nginx
@@ -187,16 +171,16 @@ server {
 ```
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/mypharma /etc/nginx/sites-enabled/
-sudo rm /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl restart nginx
+ln -s /etc/nginx/sites-available/mypharma /etc/nginx/sites-enabled/
+rm /etc/nginx/sites-enabled/default
+nginx -t
+systemctl restart nginx
 ```
 
 ### 11. SSL Certificate (requires domain)
 
 ```bash
-sudo certbot --nginx -d api.yourdomain.com
+certbot --nginx -d api.yourdomain.com
 # Auto-renewal is configured automatically
 ```
 
@@ -212,8 +196,8 @@ Create `deploy.sh` on your Mac:
 #!/bin/bash
 set -e
 
-SERVER="deploy@YOUR_SERVER_IP"
-REMOTE_DIR="~/mypharma/app"
+SERVER="root@YOUR_SERVER_IP"
+REMOTE_DIR="~/myPharma/backend"
 
 echo "Syncing files..."
 rsync -avz --exclude node_modules --exclude .env --exclude dist \
@@ -244,13 +228,13 @@ ssh mypharma
 df -h                # Check disk space
 free -h              # Check memory
 docker ps            # Check running containers
-docker compose -f ~/mypharma/docker-compose.yml logs -f
+docker compose -f ~/myPharma/backend/docker-compose.yml logs -f
 ```
 
 ### Application
 
 ```bash
-cd ~/mypharma/app
+cd ~/myPharma/backend
 
 # Run pharmacy scraper (all cities)
 npm run scrape
@@ -260,16 +244,21 @@ npm run scrape
 
 ```bash
 # Connect to PostgreSQL
-docker exec -it mypharma-postgres-1 psql -U mypharma
+docker exec -it backend-postgres-1 psql -U mypharma
 
 # Useful SQL
 SELECT COUNT(*) FROM pharmacies;
 SELECT COUNT(*) FROM pharmacy_duties;
 
-# Prisma Studio (web UI)
-cd ~/mypharma/app
+# Prisma Studio (web UI) — access from localhost
+# 1. On the server: start Prisma Studio
+cd ~/myPharma/backend
 npx prisma studio --schema=src/db/prisma/schema.prisma
-# Then tunnel from your Mac: ssh -L 5555:localhost:5555 mypharma
+
+# 2. On your Mac: create SSH tunnel (in a new terminal)
+ssh -L 5555:localhost:5555 mypharma
+
+# 3. Open in browser: http://localhost:5555
 
 # Reset DB (drop all tables + recreate)
 npm run db:reset
@@ -285,14 +274,14 @@ docker exec -t backend-postgres-1 pg_dump -U mypharma mypharma > mypharma_dump.s
 scp mypharma_dump.sql mypharma:~/
 
 # 3. Restore on server
-ssh mypharma "docker exec -i mypharma-postgres-1 psql -U mypharma mypharma < ~/mypharma_dump.sql"
+ssh mypharma "docker exec -i backend-postgres-1 psql -U mypharma mypharma < ~/mypharma_dump.sql"
 ```
 
 ### Redis
 
 ```bash
 # Connect to Redis CLI
-docker exec -it mypharma-redis-1 redis-cli
+docker exec -it backend-redis-1 redis-cli
 
 KEYS *                # List all keys
 KEYS pharmacies:*     # List pharmacy keys
@@ -320,10 +309,10 @@ Runs inside the Node.js process managed by PM2. No system crontab needed.
 
 ```bash
 # Manual backup
-docker exec mypharma-postgres-1 pg_dump -U mypharma mypharma > ~/backup_$(date +%Y%m%d).sql
+docker exec backend-postgres-1 pg_dump -U mypharma mypharma > ~/backup_$(date +%Y%m%d).sql
 
 # Restore
-cat ~/backup_20260131.sql | docker exec -i mypharma-postgres-1 psql -U mypharma mypharma
+cat ~/backup_20260131.sql | docker exec -i backend-postgres-1 psql -U mypharma mypharma
 ```
 
 ### Automated Daily Backup (optional)
@@ -335,7 +324,7 @@ mkdir -p ~/backups
 crontab -e
 
 # Add this line (daily at 3 AM)
-0 3 * * * docker exec mypharma-postgres-1 pg_dump -U mypharma mypharma | gzip > ~/backups/mypharma_$(date +\%Y\%m\%d).sql.gz
+0 3 * * * docker exec backend-postgres-1 pg_dump -U mypharma mypharma | gzip > ~/backups/mypharma_$(date +\%Y\%m\%d).sql.gz
 ```
 
 ---
@@ -349,8 +338,8 @@ crontab -e
 | DB connection refused | `docker ps` — check if postgres is running |
 | Redis empty after restart | Normal — cache rebuilds on next API request |
 | Scraper timeout | Check server internet: `curl -I https://www.vrisko.gr` |
-| Out of memory | Upgrade to CX32 or add swap: `sudo fallocate -l 2G /swapfile` |
-| SSL cert expired | `sudo certbot renew` |
+| Out of memory | Upgrade to CX32 or add swap: `fallocate -l 2G /swapfile` |
+| SSL cert expired | `certbot renew` |
 | Nginx 502 Bad Gateway | App crashed — `pm2 restart mypharma` |
 
 ---
