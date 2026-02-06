@@ -12,7 +12,7 @@ import { useTheme } from '../../src/theme/ThemeProvider';
 import { useAppStore } from '../../src/store';
 import { usePharmacyDetail } from '../../src/hooks/usePharmacies';
 import { usePharmacyStatus } from '../../src/hooks/usePharmacyStatus';
-import { FavoriteButton } from '../../src/components/FavoriteButton';
+import { useTranslation } from '../../src/i18n/translations';
 import { LoadingState } from '../../src/components/LoadingState';
 import { EmptyState } from '../../src/components/EmptyState';
 import { callPhone, openDirections, sharePharmacy } from '../../src/utils/linking';
@@ -23,6 +23,7 @@ const HEADER_HEIGHT = 420;
 export default function PharmacyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { data: pharmacy, isLoading } = usePharmacyDetail(id);
@@ -159,7 +160,6 @@ export default function PharmacyDetailScreen() {
                 >
                   <Ionicons name="share-outline" size={26} color={colors.text} />
                 </Pressable>
-                <FavoriteButton id={pharmacy.id} />
               </View>
             </View>
 
@@ -174,7 +174,7 @@ export default function PharmacyDetailScreen() {
               <View style={[styles.tag, { backgroundColor: colors.surfaceSecondary }]}>
                 <Ionicons name="time" size={14} color={colors.textSecondary} />
                 <Text style={[styles.tagText, { color: colors.textSecondary }]}>
-                  {status.isOpen ? `Κλείνει στις ${dutySlots[0]?.end || '21:00'}` : 'Κλειστό'}
+                  {status.isOpen ? `${t('closes_at')} ${dutySlots[0]?.end || '21:00'}` : t('closed')}
                 </Text>
               </View>
             </View>
@@ -190,7 +190,7 @@ export default function PharmacyDetailScreen() {
                 <Ionicons name="location" size={22} color={colors.text} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>Διεύθυνση</Text>
+                <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>{t('address')}</Text>
                 <Text style={[styles.infoValue, { color: colors.text }]}>{pharmacy.address}</Text>
               </View>
               <View style={[styles.arrowBox, { backgroundColor: colors.surfaceSecondary }]}>
@@ -205,7 +205,7 @@ export default function PharmacyDetailScreen() {
                   <Ionicons name="call" size={22} color={colors.text} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>Τηλέφωνο</Text>
+                  <Text style={[styles.infoLabel, { color: colors.textTertiary }]}>{t('phone')}</Text>
                   <Text style={[styles.infoValue, { color: colors.text }]}>{pharmacy.phone}</Text>
                 </View>
                 <View style={[styles.arrowBox, { backgroundColor: colors.surfaceSecondary }]}>
@@ -243,7 +243,7 @@ export default function PharmacyDetailScreen() {
         style={[styles.statusFloat, { top: insets.top + 10 }]}
       >
         <Animated.View style={[styles.statusDot, { backgroundColor: statusColor, transform: [{ scale: pulseAnim }] }]} />
-        <Text style={[styles.statusText, { color: statusColor }]}>{status.isOpen ? 'ΑΝΟΙΧΤΟ ΤΩΡΑ' : 'ΚΛΕΙΣΤΟ'}</Text>
+        <Text style={[styles.statusText, { color: statusColor }]}>{status.isOpen ? t('open_now') : t('closed_now')}</Text>
       </BlurView>
     </View>
   );

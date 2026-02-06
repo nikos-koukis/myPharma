@@ -28,6 +28,9 @@ interface AppState {
   setSelectedCity: (c: string | null) => void;
   setSelectedDate: (d: string) => void;
 
+  language: 'el' | 'en';
+  setLanguage: (lang: 'el' | 'en') => void;
+
   hydrate: () => Promise<void>;
 }
 
@@ -40,6 +43,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   setThemePreference: (pref) => {
     AsyncStorage.setItem('theme', pref);
     set({ themePreference: pref });
+  },
+
+  language: 'el',
+  setLanguage: (lang) => {
+    AsyncStorage.setItem('language', lang);
+    set({ language: lang });
   },
 
   userLocation: null,
@@ -63,13 +72,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSelectedDate: (d) => set({ selectedDate: d }),
 
   hydrate: async () => {
-    const [theme, locationStr] = await Promise.all([
+    const [theme, locationStr, lang] = await Promise.all([
       AsyncStorage.getItem('theme'),
       AsyncStorage.getItem('userLocation'),
+      AsyncStorage.getItem('language'),
     ]);
 
     if (theme) {
       set({ themePreference: theme as ThemePreference });
+    }
+
+    if (lang) {
+      set({ language: lang as 'el' | 'en' });
     }
 
     if (locationStr) {

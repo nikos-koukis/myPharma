@@ -26,29 +26,31 @@ import { PharmacyCard } from '../../src/components/PharmacyCard';
 import { LoadingState } from '../../src/components/LoadingState';
 import { EmptyState } from '../../src/components/EmptyState';
 import { useAppStore } from '../../src/store';
+import { useTranslation } from '../../src/i18n/translations';
 import { isOpenNow, getPharmacyStatus } from '../../src/utils/dutySchedule';
 import { formatDistance, calculateWalkingTime, calculateDrivingTime } from '../../src/utils/distance';
 import type { NearbyPharmacy } from '../../src/types';
 
-const RADIUS_OPTIONS = [
-  { label: '1km', value: 1000 },
-  { label: '5km', value: 5000 },
-  { label: '10km', value: 10000 },
-  { label: '15km', value: 15000 },
-  { label: '50km', value: 50000 },
+const RADIUS_OPTIONS = (t: any) => [
+  { label: '1' + t('km'), value: 1000 },
+  { label: '5' + t('km'), value: 5000 },
+  { label: '10' + t('km'), value: 10000 },
+  { label: '15' + t('km'), value: 15000 },
+  { label: '50' + t('km'), value: 50000 },
 ];
 
 type StatusFilter = 'all' | 'open' | 'closed';
 
-const STATUS_OPTIONS: { label: string; value: StatusFilter; color: 'primary' | 'success' | 'error' }[] = [
-  { label: 'Όλα', value: 'all', color: 'primary' },
-  { label: 'Ανοιχτά', value: 'open', color: 'success' },
-  { label: 'Κλειστά', value: 'closed', color: 'error' },
+const STATUS_OPTIONS = (t: any): { label: string; value: StatusFilter; color: 'primary' | 'success' | 'error' }[] => [
+  { label: t('all'), value: 'all', color: 'primary' },
+  { label: t('open'), value: 'open', color: 'success' },
+  { label: t('closed'), value: 'closed', color: 'error' },
 ];
 
 export default function MapScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { lat, lng, loading: locLoading, error: locError } = useLocation();
   const selectedDate = useAppStore((s) => s.selectedDate);
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,7 +98,7 @@ export default function MapScreen() {
   if (locLoading || (isLoading && !data)) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
-        <LoadingState message="Αναζήτηση φαρμακείων στην περιοχή σας..." />
+        <LoadingState message={t('searching')} />
       </View>
     );
   }
@@ -124,7 +126,7 @@ export default function MapScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.radiusScroll}
           >
-            {RADIUS_OPTIONS.map((option) => (
+            {RADIUS_OPTIONS(t).map((option) => (
               <Pressable
                 key={option.value}
                 onPress={() => setSelectedRadius(option.value)}
@@ -188,7 +190,7 @@ export default function MapScreen() {
                   <Ionicons name="search" size={18} color={colors.textTertiary} />
                   <TextInput
                     style={[styles.listSearchInput, { color: colors.text }]}
-                    placeholder="Αναζήτηση φαρμακείου..."
+                    placeholder={t('search_placeholder')}
                     placeholderTextColor={colors.textTertiary}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
@@ -210,16 +212,16 @@ export default function MapScreen() {
               {/* Results count */}
               <View style={styles.resultsHeader}>
                 <Text style={[styles.resultsCount, { color: colors.text }]}>
-                  {filteredData?.length ?? 0} φαρμακεία
+                  {filteredData?.length ?? 0} {t('pharmacies_count')}
                 </Text>
                 <Text style={[styles.resultsRadius, { color: colors.textTertiary }]}>
-                  {selectedRadius ? ` · σε ${selectedRadius / 1000}km` : ' · Κοντινότερα'}
+                  {selectedRadius ? ` · ${t('in_radius')} ${selectedRadius / 1000}${t('km')}` : ` · ${t('closest')}`}
                 </Text>
               </View>
 
               {/* Status Filters */}
               <View style={styles.filtersContainer}>
-                {STATUS_OPTIONS.map((option) => {
+                {STATUS_OPTIONS(t).map((option) => {
                   const isSelected = statusFilter === option.value;
                   const chipColor = isSelected ? colors[option.color] : colors.textSecondary;
                   const chipBg = isSelected
@@ -248,7 +250,7 @@ export default function MapScreen() {
               {/* Radius Filters */}
               <View style={styles.filtersContainer}>
                 <Ionicons name="locate-outline" size={16} color={colors.textTertiary} style={{ marginRight: 4 }} />
-                {RADIUS_OPTIONS.map((option) => (
+                {RADIUS_OPTIONS(t).map((option) => (
                   <Pressable
                     key={option.value}
                     style={[

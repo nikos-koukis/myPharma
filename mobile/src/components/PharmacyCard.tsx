@@ -4,8 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { PharmacyIcon } from './PharmacyIcon';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme/ThemeProvider';
-import { useFavorites } from '../hooks/useFavorites';
 import { usePharmacyStatus } from '../hooks/usePharmacyStatus';
+import { useTranslation } from '../i18n/translations';
 import type { Pharmacy, NearbyPharmacy, DutySlot } from '../types';
 
 interface Props {
@@ -18,9 +18,8 @@ import { BlurView } from 'expo-blur';
 
 export function PharmacyCard({ pharmacy, distance, isClosest }: Props) {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   const router = useRouter();
-  const { isFavorite, toggle } = useFavorites();
-  const fav = isFavorite(pharmacy.id);
 
   const displayDistance =
     distance ?? ('distance_meters' in pharmacy ? (pharmacy as NearbyPharmacy).distance_meters : undefined);
@@ -88,7 +87,7 @@ export function PharmacyCard({ pharmacy, distance, isClosest }: Props) {
             {isClosest && (
               <View style={[styles.closestBadge, { backgroundColor: colors.successLight }]}>
                 <Text style={[styles.closestBadgeText, { color: colors.success }]}>
-                  🟢 Κοντινότερο εφημερεύον
+                  🟢 {t('closest_on_duty')}
                 </Text>
               </View>
             )}
@@ -108,21 +107,10 @@ export function PharmacyCard({ pharmacy, distance, isClosest }: Props) {
                 styles.statusText,
                 { color: statusBarColor }
               ]}>
-                {status.statusText.toUpperCase()}
+                {(status.statusColor === 'success' ? t('open') : t('closed')).toUpperCase()}
               </Text>
             </View>
           </View>
-          <Pressable
-            onPress={() => toggle(pharmacy.id)}
-            hitSlop={12}
-            style={({ pressed }) => [styles.favoriteBtn, { opacity: pressed ? 0.6 : 1 }]}
-          >
-            <Ionicons
-              name={fav ? 'heart' : 'heart-outline'}
-              size={22}
-              color={fav ? colors.error : colors.textTertiary}
-            />
-          </Pressable>
         </View>
 
         {/* Address */}

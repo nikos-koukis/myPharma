@@ -7,18 +7,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PharmacyIcon } from '../../src/components/PharmacyIcon';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { useAppStore } from '../../src/store';
-import { useFavorites } from '../../src/hooks/useFavorites';
-import { useSearchHistory } from '../../src/hooks/useSearchHistory';
+import { useTranslation } from '../../src/i18n/translations';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 export default function SettingsScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { t, language } = useTranslation();
   const themePreference = useAppStore((s) => s.themePreference);
   const setThemePreference = useAppStore((s) => s.setThemePreference);
-  const { ids: favIds, clear: clearFavorites } = useFavorites();
-  const { history, clear: clearHistory } = useSearchHistory();
+  const setLanguage = useAppStore((s) => s.setLanguage);
 
   // Gradient colors based on theme
   const gradientColors = (themePreference === 'dark' || (themePreference === 'system' && isDark))
@@ -40,9 +39,14 @@ export default function SettingsScreen() {
 
 
   const themeOptions = [
-    { value: 'system' as const, label: 'Auto', icon: 'phone-portrait-outline' as const },
+    { value: 'system' as const, label: t('all'), icon: 'phone-portrait-outline' as const },
     { value: 'light' as const, label: 'Light', icon: 'sunny-outline' as const },
     { value: 'dark' as const, label: 'Dark', icon: 'moon-outline' as const },
+  ];
+
+  const languageOptions = [
+    { value: 'el' as const, label: 'Ελληνικά', flag: '🇬🇷' },
+    { value: 'en' as const, label: 'English', flag: '🇺🇸' },
   ];
 
   const handleThemeChange = (value: 'system' | 'light' | 'dark') => {
@@ -50,21 +54,7 @@ export default function SettingsScreen() {
     setThemePreference(value);
   };
 
-  const confirmClearFavorites = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert('Διαγραφή Αγαπημένων', `Διαγραφή ${favIds.length} αγαπημένων;`, [
-      { text: 'Άκυρο', style: 'cancel' },
-      { text: 'Διαγραφή', style: 'destructive', onPress: clearFavorites },
-    ]);
-  };
 
-  const confirmClearHistory = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert('Διαγραφή Ιστορικού', `Διαγραφή ${history.length} αναζητήσεων;`, [
-      { text: 'Άκυρο', style: 'cancel' },
-      { text: 'Διαγραφή', style: 'destructive', onPress: clearHistory },
-    ]);
-  };
 
   return (
     <View style={styles.container}>
@@ -83,17 +73,50 @@ export default function SettingsScreen() {
           <View style={[styles.logoContainer, { backgroundColor: colors.primaryLight }]}>
             <PharmacyIcon size={40} color={colors.primary} />
           </View>
-          <Text style={[styles.appName, { color: colors.text }]}>myPharma</Text>
+          <Text style={[styles.appName, { color: colors.text }]}>PharmaGo</Text>
           <Text style={[styles.appTagline, { color: colors.textTertiary }]}>
-            Βρες εφημερεύοντα φαρμακεία
+            {t('tagline')}
           </Text>
           <View style={[styles.versionBadge, { backgroundColor: colors.surfaceSecondary }]}>
-            <Text style={[styles.versionText, { color: colors.textSecondary }]}>v{APP_VERSION}</Text>
+            <Text style={[styles.versionText, { color: colors.textSecondary }]}>{t('version')}{APP_VERSION}</Text>
+          </View>
+        </View>
+
+        {/* Language Selector */}
+        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t('language')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.themeSelector, { backgroundColor: colors.surfaceSecondary }]}>
+            {languageOptions.map((opt) => {
+              const isSelected = language === opt.value;
+              return (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setLanguage(opt.value);
+                  }}
+                  style={[
+                    styles.themeOption,
+                    isSelected && [styles.themeOptionActive, { backgroundColor: colors.card }],
+                  ]}
+                >
+                  <Text style={{ fontSize: 16 }}>{opt.flag}</Text>
+                  <Text
+                    style={[
+                      styles.themeLabel,
+                      { color: isSelected ? colors.primary : colors.textSecondary },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
         {/* Theme Selector */}
-        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ΕΜΦΑΝΙΣΗ</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t('appearance')}</Text>
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.themeSelector, { backgroundColor: colors.surfaceSecondary }]}>
             {themeOptions.map((opt) => {
@@ -126,47 +149,34 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Data Management */}
-        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ΔΕΔΟΜΕΝΑ</Text>
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingsRow
-            icon="heart"
-            iconColor={colors.error}
-            iconBg={colors.errorLight}
-            label="Αγαπημένα"
-            value={favIds.length.toString()}
-            onPress={favIds.length > 0 ? confirmClearFavorites : undefined}
-            disabled={!favIds.length}
-            colors={colors}
-            showChevron={favIds.length > 0}
-          />
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <SettingsRow
-            icon="time"
-            iconColor={colors.warning}
-            iconBg={colors.warningLight}
-            label="Ιστορικό αναζήτησης"
-            value={history.length.toString()}
-            onPress={history.length > 0 ? confirmClearHistory : undefined}
-            disabled={!history.length}
-            colors={colors}
-            showChevron={history.length > 0}
-          />
+
+
+        {/* Emergency Numbers */}
+        <Text style={[styles.sectionTitle, { color: colors.error }]}>{t('emergency_numbers')}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.error + '20' }]}>
+          <View style={styles.emergencyGrid}>
+            <EmergencyButton number="166" label={t('ambulance')} color="#FF3B30" />
+            <EmergencyButton number="100" label={t('police')} color="#007AFF" />
+            <EmergencyButton number="199" label={t('fire_brigade')} color="#FF9500" />
+            <EmergencyButton number="112" label="112" color="#5856D6" />
+          </View>
+          <Text style={[styles.emergencyNote, { color: colors.textTertiary }]}>
+            {t('european_emergency')}
+          </Text>
         </View>
 
         {/* About */}
-        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ΠΛΗΡΟΦΟΡΙΕΣ</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t('information')}</Text>
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <SettingsRow
             icon="star"
             iconColor="#FFB800"
             iconBg="#FFF8E6"
-            label="Βαθμολόγησε την εφαρμογή"
+            label={t('rate_app')}
             colors={colors}
             showChevron
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              // Add App Store link here
             }}
           />
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -174,12 +184,11 @@ export default function SettingsScreen() {
             icon="share-social"
             iconColor={colors.primary}
             iconBg={colors.primaryLight}
-            label="Μοιράσου την εφαρμογή"
+            label={t('share_app')}
             colors={colors}
             showChevron
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              // Add share functionality
             }}
           />
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -187,12 +196,12 @@ export default function SettingsScreen() {
             icon="mail"
             iconColor="#5856D6"
             iconBg="#EDEDFD"
-            label="Επικοινωνία"
+            label={t('contact_us')}
             colors={colors}
             showChevron
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              Linking.openURL('mailto:support@mypharma.gr');
+              Linking.openURL('mailto:support@pharmago.gr');
             }}
           />
         </View>
@@ -200,11 +209,30 @@ export default function SettingsScreen() {
         {/* Footer */}
         <View style={styles.footer}>
           <Text style={[styles.copyright, { color: colors.textTertiary }]}>
-            © {new Date().getFullYear()} myPharma
+            {t('copyright')}
           </Text>
         </View>
       </ScrollView>
     </View>
+  );
+}
+
+function EmergencyButton({ number, label, color }: { number: string; label: string; color: string }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={() => Linking.openURL(`tel:${number}`)}
+      style={({ pressed }) => [
+        styles.emergencyButton,
+        { backgroundColor: color + '15', borderColor: color + '30', opacity: pressed ? 0.7 : 1 }
+      ]}
+    >
+      <Ionicons name="call" size={18} color={color} />
+      <View>
+        <Text style={[styles.emergencyNumber, { color }]}>{number}</Text>
+        <Text style={[styles.emergencyLabel, { color: colors.textSecondary }]}>{label}</Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -389,6 +417,37 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     marginLeft: 64,
+  },
+  emergencyGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 10,
+    gap: 10,
+  },
+  emergencyButton: {
+    flex: 1,
+    minWidth: '45%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 10,
+  },
+  emergencyNumber: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  emergencyLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  emergencyNote: {
+    fontSize: 11,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    lineHeight: 16,
+    textAlign: 'center',
   },
   footer: {
     alignItems: 'center',

@@ -11,6 +11,7 @@ import { DatePicker } from '../../src/components/DatePicker';
 import { PharmacyCard } from '../../src/components/PharmacyCard';
 import { LoadingState } from '../../src/components/LoadingState';
 import { EmptyState } from '../../src/components/EmptyState';
+import { useTranslation } from '../../src/i18n/translations';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { calculateDistance } from '../../src/utils/distance';
 import { isOpenNow, getNextOpening } from '../../src/utils/dutySchedule';
@@ -29,6 +30,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 export default function OnDutyScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const router = useRouter();
   const [filter, setFilter] = useState<FilterType>('open');
 
@@ -118,10 +120,10 @@ export default function OnDutyScreen() {
             <Ionicons name="location" size={32} color={colors.primary} />
           </View>
           <Text style={[styles.detectingTitle, { color: colors.text }]}>
-            Εντοπισμός τοποθεσίας...
+            {t('detecting_location')}
           </Text>
           <Text style={[styles.detectingSubtitle, { color: colors.textTertiary }]}>
-            Βρίσκουμε την περιοχή σας
+            {t('finding_area')}
           </Text>
         </View>
       </View>
@@ -153,10 +155,10 @@ export default function OnDutyScreen() {
         </View>
         <View style={styles.locationInfo}>
           <Text style={[styles.locationLabel, { color: colors.textTertiary }]}>
-            Η ΠΕΡΙΟΧΗ ΣΟΥ
+            {t('my_location')}
           </Text>
           <Text style={[styles.locationName, { color: colors.text }]}>
-            {selectedCity || selectedPrefecture || 'Επιλέξτε περιοχή'}
+            {selectedCity || selectedPrefecture || t('select_area')}
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
@@ -186,7 +188,7 @@ export default function OnDutyScreen() {
                 { color: filter === 'open' ? colors.success : colors.textSecondary },
               ]}
             >
-              Ανοιχτά
+              {t('open')}
             </Text>
             <View style={[styles.filterBadge, { backgroundColor: filter === 'open' ? colors.success : colors.border }]}>
               <Text style={[styles.filterBadgeText, { color: filter === 'open' ? '#FFFFFF' : colors.textSecondary }]}>
@@ -214,7 +216,7 @@ export default function OnDutyScreen() {
                 { color: filter === 'opening_soon' ? colors.warning : colors.textSecondary },
               ]}
             >
-              Ανοίγουν σύντομα
+              {t('opening_soon')}
             </Text>
             <View style={[styles.filterBadge, { backgroundColor: filter === 'opening_soon' ? colors.warning : colors.border }]}>
               <Text style={[styles.filterBadgeText, { color: filter === 'opening_soon' ? '#FFFFFF' : colors.textSecondary }]}>
@@ -231,17 +233,17 @@ export default function OnDutyScreen() {
         <LoadingState />
       ) : !pharmaciesWithDistance.length ? (
         <EmptyState
-          title="Δεν υπάρχουν εφημερεύοντα"
-          subtitle="Δοκιμάστε διαφορετική ημερομηνία"
+          title={t('no_on_duty')}
+          subtitle={t('change_date')}
         />
       ) : !filteredData.length ? (
         <EmptyState
           title={
-            filter === 'open' ? 'Κανένα ανοιχτό φαρμακείο' :
-              filter === 'opening_soon' ? 'Κανένα φαρμακείο δεν ανοίγει σύντομα' :
-                'Δεν βρέθηκαν αποτελέσματα'
+            filter === 'open' ? t('no_open_pharmacies') :
+              filter === 'opening_soon' ? t('no_opening_soon') :
+                t('no_results')
           }
-          subtitle="Δοκιμάστε διαφορετικό φίλτρο"
+          subtitle={t('try_different_filter')}
         />
       ) : (
         <FlatList
@@ -260,10 +262,10 @@ export default function OnDutyScreen() {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <Text style={[styles.resultCount, { color: colors.textTertiary }]}>
-              {filteredData.length} {filteredData.length === 1 ? 'φαρμακείο' : 'φαρμακεία'} {
-                filter === 'open' ? 'είναι ανοιχτά' :
-                  filter === 'opening_soon' ? 'ανοίγουν τώρα' :
-                    'εφημερεύουν'
+              {filteredData.length} {filteredData.length === 1 ? t('pharmacy_singular') : t('pharmacies_plural')} {
+                filter === 'open' ? t('is_open') :
+                  filter === 'opening_soon' ? t('are_opening_now') :
+                    t('are_on_duty')
               }
             </Text>
           }
