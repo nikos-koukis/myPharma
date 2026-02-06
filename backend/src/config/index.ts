@@ -40,6 +40,7 @@ export const config = {
     timeout: 30000,
     retries: 3,
     baseUrl: 'https://www.vrisko.gr/efimeries-farmakeion',
+    proxyUrl: env('SCRAPER_PROXY_URL', ''),  // Used on retry only, e.g., http://user:pass@proxy:8080
   },
 
   geocoder: {

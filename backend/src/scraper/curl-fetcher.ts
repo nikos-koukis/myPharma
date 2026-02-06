@@ -1,9 +1,11 @@
 /**
  * Lightweight HTTP fetcher using Node.js native fetch.
  * Alternative to Puppeteer for memory-constrained environments.
+ * Supports proxy on retry via SCRAPER_PROXY_URL env variable.
  */
 
 import { config } from '../config';
+import { ProxyAgent } from 'undici';
 
 // User agents pool for rotation
 const USER_AGENTS = [
@@ -46,20 +48,41 @@ export interface FetchResult {
 }
 
 /**
+ * Create proxy agent if configured
+ */
+function getProxyAgent(): ProxyAgent | undefined {
+  const proxyUrl = config.scraper.proxyUrl;
+  if (!proxyUrl) return undefined;
+  return new ProxyAgent(proxyUrl);
+}
+
+/**
  * Fetch a URL with browser-like headers
+ * Uses proxy on retry if SCRAPER_PROXY_URL is configured
  */
 export async function fetchPage(url: string, retries = 3): Promise<FetchResult> {
   let lastError: Error | null = null;
+  const proxyAgent = getProxyAgent();
 
   for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      console.log(`[curl] Fetching ${url}${attempt > 1 ? ` (retry ${attempt}/${retries})` : ''}`);
+    // Use proxy on retry (attempt 2+) if configured
+    const useProxy = attempt > 1 && proxyAgent;
 
-      const response = await fetch(url, {
+    try {
+      console.log(`[curl] Fetching ${url}${attempt > 1 ? ` (retry ${attempt}/${retries})` : ''}${useProxy ? ' [via proxy]' : ''}`);
+
+      const fetchOptions: RequestInit = {
         method: 'GET',
         headers: buildHeaders(),
         redirect: 'follow',
-      });
+      };
+
+      // Add proxy dispatcher on retry
+      if (useProxy) {
+        (fetchOptions as any).dispatcher = proxyAgent;
+      }
+
+      const response = await fetch(url, fetchOptions);
 
       console.log(`[curl] Response: ${response.status} ${response.statusText}`);
 
