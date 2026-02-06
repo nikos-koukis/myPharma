@@ -1071,6 +1071,116 @@
           "calcs": ["lastNotNull"]
         }
       }
+    },
+    {
+      "id": 14,
+      "title": "Recent Feedback Messages",
+      "description": "Latest user feedback messages from the database",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 41 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "postgresql"
+          },
+          "rawSql": "SELECT \n  created_at as \"Time\",\n  type as \"Type\",\n  message as \"Message\",\n  email as \"Email\",\n  platform as \"Platform\",\n  device_info as \"Device\",\n  app_version as \"Version\"\nFROM feedback\nORDER BY created_at DESC\nLIMIT 50",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true,
+            "inspect": true
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Time" },
+            "properties": [
+              { "id": "custom.width", "value": 160 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Type" },
+            "properties": [
+              { "id": "custom.width", "value": 120 },
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "bug": { "text": "🐛 Bug", "color": "red" } } },
+                  { "type": "value", "options": { "feature": { "text": "💡 Feature", "color": "yellow" } } },
+                  { "type": "value", "options": { "pharmacy_error": { "text": "💊 Pharmacy", "color": "purple" } } },
+                  { "type": "value", "options": { "general": { "text": "💬 General", "color": "blue" } } }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Message" },
+            "properties": [
+              { "id": "custom.width", "value": 500 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Email" },
+            "properties": [
+              { "id": "custom.width", "value": 200 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Platform" },
+            "properties": [
+              { "id": "custom.width", "value": 80 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Device" },
+            "properties": [
+              { "id": "custom.width", "value": 200 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Version" },
+            "properties": [
+              { "id": "custom.width", "value": 80 }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "md",
+        "footer": {
+          "show": false,
+          "reducer": ["sum"],
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [
+          { "displayName": "Time", "desc": true }
+        ]
+      }
     }
   ]
 }
