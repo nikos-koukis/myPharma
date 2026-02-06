@@ -70,7 +70,11 @@ export async function fetchPage(url: string, retries = 3): Promise<FetchResult> 
     const useProxy = attempt > 1 && proxyAgent;
 
     try {
-      console.log(`[curl] Fetching ${url}${attempt > 1 ? ` (retry ${attempt}/${retries})` : ''}${useProxy ? ' [via proxy]' : ''}`);
+      if (useProxy) {
+        console.log(`[curl] 🔄 USING PROXY for retry ${attempt}/${retries}: ${url}`);
+      } else {
+        console.log(`[curl] Fetching ${url}${attempt > 1 ? ` (retry ${attempt}/${retries})` : ''}`);
+      }
 
       const fetchOptions: RequestInit = {
         method: 'GET',
