@@ -66,13 +66,13 @@ export default function PharmacyDetailScreen() {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? '#020617' : '#F0FDF4' }]}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <LoadingState message="Φόρτωση στοιχείων..." />
+          <LoadingState message={t('searching')} />
         </View>
       </View>
     );
   }
 
-  if (!pharmacy) return <EmptyState title="Δεν βρέθηκε το φαρμακείο" />;
+  if (!pharmacy) return <EmptyState title={t('no_pharmacies')} />;
 
   // Status Colors
   const statusColor = status.isOpen
