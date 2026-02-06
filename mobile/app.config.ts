@@ -2,20 +2,22 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'myPharma',
-  slug: 'mypharma',
-  version: '1.0.0',
+  name: 'PharmaGo',
+  slug: 'pharmago',
+  version: '1.1.0',
   orientation: 'portrait',
   icon: './assets/appiconph.png',
   userInterfaceStyle: 'automatic',
   newArchEnabled: true,
-  scheme: 'mypharma',
+  scheme: 'pharmago',
   splash: {
     image: './assets/splash-icon.png',
     resizeMode: 'contain',
     backgroundColor: '#ffffff',
   },
   ios: {
+    bundleIdentifier: 'gr.k-tech.mypharma',
+    buildNumber: '1.0.0',
     supportsTablet: true,
     infoPlist: {
       NSLocationWhenInUseUsageDescription:
@@ -24,6 +26,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
   },
   android: {
+    package: 'gr.ktech.mypharma',
     adaptiveIcon: {
       foregroundImage: './assets/appiconph.png',
       backgroundColor: '#ffffff',
