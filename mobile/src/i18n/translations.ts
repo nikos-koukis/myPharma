@@ -64,7 +64,6 @@ export const translations = {
         are_on_duty: 'εφημερεύουν',
         pharmacy_singular: 'φαρμακείο',
         pharmacies_plural: 'φαρμακεία',
-        are_on_duty: 'εφημερεύουν',
 
         // Duty Status
         open_until: 'Ανοιχτό μέχρι',
@@ -158,7 +157,6 @@ export const translations = {
         are_on_duty: 'on duty',
         pharmacy_singular: 'pharmacy',
         pharmacies_plural: 'pharmacies',
-        are_on_duty: 'are on duty',
 
         // Duty Status
         open_until: 'Open until',

@@ -1,0 +1,21 @@
+# PharmaGo - Εφημερεύοντα Φαρμακεία Ελλάδα
+# https://pharmago.gr
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://pharmago.gr/sitemap.xml
+
+# Crawl-delay for respectful crawling
+Crawl-delay: 1
+
+# Block admin/private paths if any
+Disallow: /api/
+Disallow: /_next/static/
+Disallow: /_next/image/
+
+# Allow all important pages
+Allow: /
+Allow: /privacy
+Allow: /terms
