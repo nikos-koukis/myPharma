@@ -42,6 +42,7 @@ export const translations = {
         rate_app: 'Βαθμολόγησε την εφαρμογή',
         share_app: 'Μοιράσου την εφαρμογή',
         contact_us: 'Επικοινωνία',
+        send_feedback: 'Αποστολή Σχολίου',
         copyright: '© 2026 myPharma',
         version: 'v',
         tagline: 'Βρες εφημερεύοντα φαρμακεία',
@@ -61,6 +62,23 @@ export const translations = {
         are_on_duty: 'εφημερεύουν',
         pharmacy_singular: 'φαρμακείο',
         pharmacies_plural: 'φαρμακεία',
+
+        // Feedback
+        feedback_type: 'ΤΥΠΟΣ',
+        feedback_message: 'ΜΗΝΥΜΑ',
+        feedback_email: 'EMAIL (ΠΡΟΑΙΡΕΤΙΚΟ)',
+        feedback_placeholder: 'Περιγράψτε το πρόβλημα ή την πρότασή σας...',
+        feedback_email_placeholder: 'Για να λάβετε απάντηση...',
+        feedback_submit: 'Αποστολή',
+        feedback_success_title: 'Ευχαριστούμε!',
+        feedback_success_msg: 'Το σχόλιό σας καταχωρήθηκε επιτυχώς.',
+        feedback_error_title: 'Σφάλμα',
+        feedback_error_msg: 'Δεν ήταν δυνατή η αποστολή. Παρακαλώ δοκιμάστε ξανά.',
+        feedback_min_chars: 'Το μήνυμα πρέπει να έχει τουλάχιστον 10 χαρακτήρες.',
+        bug: 'Πρόβλημα',
+        feature: 'Πρόταση',
+        pharmacy_error: 'Λάθος Φαρμακείου',
+        general: 'Γενικά',
 
         // Emergency Numbers
         ambulance: 'ΕΚΑΒ',
@@ -109,6 +127,7 @@ export const translations = {
         rate_app: 'Rate the app',
         share_app: 'Share the app',
         contact_us: 'Contact us',
+        send_feedback: 'Send Feedback',
         copyright: '© 2026 myPharma',
         version: 'v',
         tagline: 'Find on-duty pharmacies',
@@ -128,6 +147,23 @@ export const translations = {
         are_on_duty: 'on duty',
         pharmacy_singular: 'pharmacy',
         pharmacies_plural: 'pharmacies',
+
+        // Feedback
+        feedback_type: 'TYPE',
+        feedback_message: 'MESSAGE',
+        feedback_email: 'EMAIL (OPTIONAL)',
+        feedback_placeholder: 'Describe the issue or your suggestion...',
+        feedback_email_placeholder: 'To receive a reply...',
+        feedback_submit: 'Submit',
+        feedback_success_title: 'Thank you!',
+        feedback_success_msg: 'Your feedback has been submitted successfully.',
+        feedback_error_title: 'Error',
+        feedback_error_msg: 'Submission failed. Please try again.',
+        feedback_min_chars: 'Message must be at least 10 characters long.',
+        bug: 'Bug',
+        feature: 'Suggestion',
+        pharmacy_error: 'Pharmacy Error',
+        general: 'General',
 
         // Emergency Numbers
         ambulance: 'Ambulance',

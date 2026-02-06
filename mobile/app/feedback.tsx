@@ -16,26 +16,34 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { useTheme } from '../src/theme/ThemeProvider';
 import { api } from '../src/api/client';
+import { useTranslation } from '../src/i18n/translations';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 type FeedbackType = 'bug' | 'feature' | 'general' | 'pharmacy_error';
 
-const feedbackTypes: { value: FeedbackType; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
-  { value: 'bug', label: 'Πρόβλημα', icon: 'bug', color: '#EF4444' },
-  { value: 'feature', label: 'Πρόταση', icon: 'bulb', color: '#F59E0B' },
-  { value: 'pharmacy_error', label: 'Λάθος Φαρμακείου', icon: 'medical', color: '#8B5CF6' },
-  { value: 'general', label: 'Γενικά', icon: 'chatbubble', color: '#3B82F6' },
+interface FeedbackTypeOption {
+  value: FeedbackType;
+  labelKey: any;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+}
+
+const feedbackTypes: FeedbackTypeOption[] = [
+  { value: 'bug', labelKey: 'bug', icon: 'bug', color: '#EF4444' },
+  { value: 'feature', labelKey: 'feature', icon: 'bulb', color: '#F59E0B' },
+  { value: 'pharmacy_error', labelKey: 'pharmacy_error', icon: 'medical', color: '#8B5CF6' },
+  { value: 'general', labelKey: 'general', icon: 'chatbubble', color: '#3B82F6' },
 ];
 
 export default function FeedbackScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const [type, setType] = useState<FeedbackType>('general');
   const [message, setMessage] = useState('');
@@ -48,7 +56,7 @@ export default function FeedbackScreen() {
 
   const handleSubmit = async () => {
     if (message.trim().length < 10) {
-      Alert.alert('Σφάλμα', 'Το μήνυμα πρέπει να έχει τουλάχιστον 10 χαρακτήρες.');
+      Alert.alert(t('feedback_error_title'), t('feedback_min_chars'));
       return;
     }
 
@@ -69,16 +77,16 @@ export default function FeedbackScreen() {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
-        'Ευχαριστούμε!',
-        'Το σχόλιό σας καταχωρήθηκε επιτυχώς.',
+        t('feedback_success_title'),
+        t('feedback_success_msg'),
         [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch (error: any) {
       console.error('[feedback] Submit failed:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
-        'Σφάλμα',
-        'Δεν ήταν δυνατή η αποστολή. Παρακαλώ δοκιμάστε ξανά.'
+        t('feedback_error_title'),
+        t('feedback_error_msg')
       );
     } finally {
       setIsSubmitting(false);
@@ -106,11 +114,11 @@ export default function FeedbackScreen() {
             >
               <Ionicons name="arrow-back" size={22} color={colors.text} />
             </Pressable>
-            <Text style={[styles.title, { color: colors.text }]}>Αποστολή Σχολίου</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{t('send_feedback')}</Text>
           </View>
 
           {/* Type Selector */}
-          <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ΤΥΠΟΣ</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t('feedback_type')}</Text>
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.typeGrid}>
               {feedbackTypes.map((ft) => {
@@ -139,7 +147,7 @@ export default function FeedbackScreen() {
                         { color: isSelected ? ft.color : colors.textSecondary },
                       ]}
                     >
-                      {ft.label}
+                      {t(ft.labelKey)}
                     </Text>
                   </Pressable>
                 );
@@ -148,11 +156,11 @@ export default function FeedbackScreen() {
           </View>
 
           {/* Message Input */}
-          <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>ΜΗΝΥΜΑ</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t('feedback_message')}</Text>
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TextInput
               style={[styles.messageInput, { color: colors.text }]}
-              placeholder="Περιγράψτε το πρόβλημα ή την πρότασή σας..."
+              placeholder={t('feedback_placeholder')}
               placeholderTextColor={colors.textTertiary}
               multiline
               numberOfLines={6}
@@ -167,11 +175,11 @@ export default function FeedbackScreen() {
           </View>
 
           {/* Email Input */}
-          <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>EMAIL (ΠΡΟΑΙΡΕΤΙΚΟ)</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t('feedback_email')}</Text>
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TextInput
               style={[styles.emailInput, { color: colors.text }]}
-              placeholder="Για να λάβετε απάντηση..."
+              placeholder={t('feedback_email_placeholder')}
               placeholderTextColor={colors.textTertiary}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -196,7 +204,7 @@ export default function FeedbackScreen() {
             ) : (
               <>
                 <Ionicons name="send" size={20} color="#FFF" />
-                <Text style={styles.submitText}>Αποστολή</Text>
+                <Text style={styles.submitText}>{t('feedback_submit')}</Text>
               </>
             )}
           </Pressable>
