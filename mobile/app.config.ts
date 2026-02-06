@@ -2,18 +2,18 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'myPharma',
-  slug: 'mypharma',
+  name: 'PharmaGO',
+  slug: 'pharmago',
   version: '1.1.0',
   orientation: 'portrait',
   icon: './assets/appiconph.png',
   userInterfaceStyle: 'automatic',
   newArchEnabled: true,
-  scheme: 'mypharma',
+  scheme: 'pharmago',
   splash: {
-    image: './assets/splash-icon.png',
+    image: './assets/splash-pharmago.png',
     resizeMode: 'contain',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#000000',
   },
   ios: {
     bundleIdentifier: 'gr.k-tech.mypharma',
@@ -29,7 +29,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     package: 'gr.ktech.mypharma',
     adaptiveIcon: {
       foregroundImage: './assets/appiconph.png',
-      backgroundColor: '#ffffff',
+      backgroundColor: '#000000',
     },
     edgeToEdgeEnabled: true,
     permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],

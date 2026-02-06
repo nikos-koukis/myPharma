@@ -198,17 +198,19 @@ export function formatTimeUntil(minutes: number): string {
 /**
  * Get a status string for display
  */
-export function getPharmacyStatus(duties: DutySlot[]): {
+export function getPharmacyStatus(duties: DutySlot[], t?: (key: any) => string): {
   isOpen: boolean;
   statusText: string;
   statusColor: 'success' | 'warning' | 'error';
   currentSlot: DutySlot | null;
   nextOpening: ReturnType<typeof getNextOpening>;
 } {
+  const translate = t || ((key: string) => key);
+
   if (!duties || duties.length === 0) {
     return {
       isOpen: false,
-      statusText: 'Δεν εφημερεύει σήμερα',
+      statusText: translate('does_not_duty_today'),
       statusColor: 'error',
       currentSlot: null,
       nextOpening: null,
@@ -224,8 +226,6 @@ export function getPharmacyStatus(duties: DutySlot[]): {
     // Calculate time until closing
     let minutesUntilClose: number;
     if (end < timeToMinutes(currentSlot.start)) {
-      // Cross-midnight: if we're before midnight, time until midnight + end
-      // if we're after midnight, just time until end
       if (current >= timeToMinutes(currentSlot.start)) {
         minutesUntilClose = (24 * 60 - current) + end;
       } else {
@@ -237,14 +237,14 @@ export function getPharmacyStatus(duties: DutySlot[]): {
 
     // Dynamic status based on time until closing
     let statusColor: 'success' | 'warning' | 'error' = 'success';
-    let statusText = `Ανοιχτό μέχρι ${currentSlot.end}`;
+    let statusText = `${translate('open_until')} ${currentSlot.end}`;
 
     if (minutesUntilClose <= 5) {
       statusColor = 'error';
-      statusText = `Κλείνει σε ${minutesUntilClose}'`;
+      statusText = `${translate('closes_in')} ${minutesUntilClose}'`;
     } else if (minutesUntilClose <= 20) {
       statusColor = 'warning';
-      statusText = `Ανοιχτό μέχρι ${currentSlot.end}`;
+      statusText = `${translate('open_until')} ${currentSlot.end}`;
     }
 
     return {
@@ -259,10 +259,10 @@ export function getPharmacyStatus(duties: DutySlot[]): {
   const nextOpening = getNextOpening(duties);
 
   if (nextOpening) {
-    const prefix = nextOpening.isTomorrow ? 'Αύριο' : 'Σήμερα';
+    const prefix = translate(nextOpening.isTomorrow ? 'tomorrow_at' : 'today_at');
     return {
       isOpen: false,
-      statusText: `${prefix} στις ${nextOpening.opensAt}`,
+      statusText: `${prefix} ${nextOpening.opensAt}`,
       statusColor: 'error',
       currentSlot: null,
       nextOpening,
@@ -271,7 +271,7 @@ export function getPharmacyStatus(duties: DutySlot[]): {
 
   return {
     isOpen: false,
-    statusText: 'Κλειστό',
+    statusText: translate('closed'),
     statusColor: 'error',
     currentSlot: null,
     nextOpening: null,

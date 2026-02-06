@@ -5,9 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { PharmacyIcon } from '../../src/components/PharmacyIcon';
 import { useTheme } from '../../src/theme/ThemeProvider';
+import { useTranslation } from '../../src/i18n/translations';
 
 export default function TabLayout() {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
 
   return (
     <Tabs
@@ -58,7 +60,6 @@ export default function TabLayout() {
           </View>
         ),
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '500' as const,
@@ -70,7 +71,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Χάρτης',
+          title: t('map'),
           tabBarIcon: ({ focused }) => (
             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
               <Image
@@ -85,7 +86,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="pharmacies"
         options={{
-          title: 'Εφημερίες',
+          title: t('pharmacies'),
           tabBarIcon: ({ focused }) => (
             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
               <Image
@@ -101,7 +102,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Ρυθμίσεις',
+          title: t('settings'),
           tabBarIcon: ({ focused }) => (
             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
               <Image
