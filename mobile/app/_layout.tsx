@@ -6,6 +6,7 @@ import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, useTheme } from '../src/theme/ThemeProvider';
+import { useTranslation } from '../src/i18n/translations';
 import { useAppStore } from '../src/store';
 import { StatusBar } from 'expo-status-bar';
 
@@ -20,6 +21,7 @@ const queryClient = new QueryClient({
 
 function InnerLayout() {
   const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
   return (
     <>
       <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -31,16 +33,20 @@ function InnerLayout() {
           contentStyle: { backgroundColor: colors.background },
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, headerBackTitle: t('back') }} />
         <Stack.Screen
           name="pharmacy/[id]"
-          options={{ title: 'Φαρμακείο', headerBackTitle: 'Πίσω' }}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="feedback"
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="location-picker"
           options={{
-            title: 'Επιλογή Περιοχής',
-            headerBackTitle: 'Πίσω',
+            title: t('select_area'),
+            headerBackTitle: t('back'),
             presentation: 'modal',
           }}
         />

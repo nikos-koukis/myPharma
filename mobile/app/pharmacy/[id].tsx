@@ -65,7 +65,6 @@ export default function PharmacyDetailScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? '#020617' : '#F0FDF4' }]}>
-        <Stack.Screen options={{ headerShown: false }} />
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <LoadingState message="Φόρτωση στοιχείων..." />
         </View>
@@ -82,7 +81,7 @@ export default function PharmacyDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ headerShown: false }} />
+
 
       {/* Dynamic Background */}
       <LinearGradient

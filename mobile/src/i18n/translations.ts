@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useAppStore } from '../store';
 
 export const translations = {
@@ -6,6 +7,7 @@ export const translations = {
         map: 'Χάρτης',
         pharmacies: 'Εφημερίες',
         settings: 'Ρυθμίσεις',
+        back: 'Πίσω',
 
         // Map Screen
         search_placeholder: 'Αναζήτηση φαρμακείου...',
@@ -61,6 +63,7 @@ export const translations = {
         are_opening_now: 'ανοίγουν τώρα',
         pharmacy_singular: 'φαρμακείο',
         pharmacies_plural: 'φαρμακεία',
+        are_on_duty: 'εφημερεύουν',
 
         // Duty Status
         open_until: 'Ανοιχτό μέχρι',
@@ -97,6 +100,7 @@ export const translations = {
         map: 'Map',
         pharmacies: 'Pharmacies',
         settings: 'Settings',
+        back: 'Back',
 
         // Map Screen
         search_placeholder: 'Search pharmacy...',
@@ -152,6 +156,7 @@ export const translations = {
         are_opening_now: 'opening now',
         pharmacy_singular: 'pharmacy',
         pharmacies_plural: 'pharmacies',
+        are_on_duty: 'are on duty',
 
         // Duty Status
         open_until: 'Open until',
@@ -189,6 +194,10 @@ export type TranslationKey = keyof typeof translations.el;
 
 export const useTranslation = () => {
     const language = useAppStore((s) => s.language);
-    const t = (key: TranslationKey) => translations[language][key] || key;
+
+    const t = useCallback((key: TranslationKey) => {
+        return translations[language][key] || key;
+    }, [language]);
+
     return { t, language };
 };
