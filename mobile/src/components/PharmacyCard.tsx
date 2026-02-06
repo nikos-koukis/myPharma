@@ -50,7 +50,7 @@ export function PharmacyCard({ pharmacy, distance, isClosest }: Props) {
 
     const formatted = dutySlots.map((slot) => {
       const extendsToNextDay = parseInt(slot.end.split(':')[0], 10) < parseInt(slot.start.split(':')[0], 10);
-      return `${slot.start}-${slot.end}${extendsToNextDay ? ' (Επόμ.)' : ''}`;
+      return `${slot.start}-${slot.end}${extendsToNextDay ? ' (' + t('tomorrow_at') + ')' : ''}`;
     });
 
     return { hours: formatted.join(' | '), hasHours: true };
