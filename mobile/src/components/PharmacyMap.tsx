@@ -13,7 +13,7 @@ interface Props {
   pharmacies: NearbyPharmacy[];
   userLat: number;
   userLng: number;
-  radius: number;
+  radius: number | null;
   selectedPharmacy: NearbyPharmacy | null;
   onSelectPharmacy: (pharmacy: NearbyPharmacy | null) => void;
 }
@@ -30,8 +30,8 @@ export function PharmacyMap({
   const mapRef = useRef<MapView>(null);
   const [routeCoordinates, setRouteCoordinates] = React.useState<{ latitude: number; longitude: number }[]>([]);
 
-  // Calculate map delta based on radius (making it tighter initially)
-  const delta = (radius / 111_320) * 1.0;
+  // Calculate map delta based on radius (default to 5km if no radius selected)
+  const delta = ((radius || 5000) / 111_320) * 1.0;
 
   const initialRegion: Region = {
     latitude: userLat,
@@ -123,19 +123,30 @@ export function PharmacyMap({
         edgePadding: { top: 80, right: 80, bottom: 350, left: 80 },
         animated: true,
       });
-    } else if (hasAutoSelectedRef.current && pharmacies.length > 0) {
-      // Only zoom out if we had a selection before (user deselected) and we have pharmacies to show
-      const coordinates = [
-        { latitude: userLat, longitude: userLng },
-        ...pharmacies.map(p => ({ latitude: p.lat, longitude: p.lng }))
-      ];
+    } else if (hasAutoSelectedRef.current) {
+      if (pharmacies.length > 0) {
+        // Zoom to show user and all results
+        const coordinates = [
+          { latitude: userLat, longitude: userLng },
+          ...pharmacies.map(p => ({ latitude: p.lat, longitude: p.lng }))
+        ];
 
-      mapRef.current.fitToCoordinates(coordinates, {
-        edgePadding: { top: 100, right: 60, bottom: 100, left: 60 },
-        animated: true,
-      });
+        mapRef.current.fitToCoordinates(coordinates, {
+          edgePadding: { top: 100, right: 60, bottom: 100, left: 60 },
+          animated: true,
+        });
+      } else {
+        // No pharmacies: Center on user but keep the zoom level relative to the search radius
+        const zoomDelta = Math.max(((radius || 5000) / 111_320) * 2, 0.04);
+        mapRef.current.animateToRegion({
+          latitude: userLat,
+          longitude: userLng,
+          latitudeDelta: zoomDelta,
+          longitudeDelta: zoomDelta,
+        }, 500);
+      }
     }
-  }, [selectedPharmacy, userLat, userLng, pharmacies]);
+  }, [selectedPharmacy, userLat, userLng, pharmacies, radius]);
 
   const handleMarkerPress = (pharmacy: NearbyPharmacy) => {
     onSelectPharmacy(pharmacy);
@@ -158,7 +169,7 @@ export function PharmacyMap({
       pitchEnabled={true}
     >
 
-      {/* 1. Background Glow Circle (The "Circle" the user mentioned) */}
+      {/* 1. Background Glow Circle */}
       <Circle
         center={{ latitude: userLat, longitude: userLng }}
         radius={120}
@@ -168,10 +179,7 @@ export function PharmacyMap({
         zIndex={1}
       />
 
-
-
-
-      {/* 1. Route line - use a distinctive color to verify walking mode */}
+      {/* 1. Route line */}
       {selectedPharmacy && routeCoordinates.length > 0 && (
         <Polyline
           coordinates={routeCoordinates}
@@ -180,8 +188,6 @@ export function PharmacyMap({
           zIndex={100}
         />
       )}
-
-
 
       {/* 2. Pharmacy markers */}
       {pharmacies.map((p) => (
@@ -194,16 +200,13 @@ export function PharmacyMap({
         />
       ))}
 
-
-
-
       {/* 3. User Walking Marker (LAST IN LIST = TOP VISIBILITY) */}
       <Marker
         key="user-location-stable"
         coordinate={{ latitude: userLat, longitude: userLng }}
         anchor={{ x: 0.5, y: 0.5 }}
         zIndex={10000}
-        tracksViewChanges={false}
+        tracksViewChanges={true}
       >
         <View collapsable={false} style={styles.userLocationOuter}>
           <View collapsable={false} style={styles.userLocationInner}>

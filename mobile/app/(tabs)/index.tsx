@@ -53,14 +53,14 @@ export default function MapScreen() {
   const selectedDate = useAppStore((s) => s.selectedDate);
   const [searchQuery, setSearchQuery] = useState('');
   const [showList, setShowList] = useState(false);
-  const [selectedRadius, setSelectedRadius] = useState(50000); // Default to 50km
+  const [selectedRadius, setSelectedRadius] = useState<number | null>(null); // null means "find closest regardless"
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
   const [selectedPharmacy, setSelectedPharmacy] = useState<NearbyPharmacy | null>(null);
 
   const { data, isLoading, refetch, isRefetching } = useNearbyPharmacies({
     lat: lat ?? 0,
     lng: lng ?? 0,
-    radius: selectedRadius,
+    radius: selectedRadius ?? undefined,
     date: selectedDate,
     enabled: lat != null && lng != null,
   });
@@ -213,7 +213,7 @@ export default function MapScreen() {
                   {filteredData?.length ?? 0} φαρμακεία
                 </Text>
                 <Text style={[styles.resultsRadius, { color: colors.textTertiary }]}>
-                  {' '}· σε {selectedRadius / 1000}km
+                  {selectedRadius ? ` · σε ${selectedRadius / 1000}km` : ' · Κοντινότερα'}
                 </Text>
               </View>
 
