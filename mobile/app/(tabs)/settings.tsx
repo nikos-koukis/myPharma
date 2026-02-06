@@ -16,7 +16,11 @@ export default function SettingsScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   const { t, language } = useTranslation();
+=======
+  const router = useRouter();
+>>>>>>> Stashed changes
 =======
   const router = useRouter();
 >>>>>>> Stashed changes
@@ -194,6 +198,19 @@ export default function SettingsScreen() {
             showChevron
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <SettingsRow
+            icon="chatbox-ellipses"
+            iconColor="#10B981"
+            iconBg="#D1FAE5"
+            label="Στείλε Σχόλιο"
+            colors={colors}
+            showChevron
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/feedback');
             }}
           />
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
