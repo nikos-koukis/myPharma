@@ -75,7 +75,7 @@ export default function SettingsScreen() {
           <View style={[styles.logoContainer, { backgroundColor: colors.primaryLight }]}>
             <PharmacyIcon size={40} color={colors.primary} />
           </View>
-          <Text style={[styles.appName, { color: colors.text }]}>myPharma</Text>
+          <Text style={[styles.appName, { color: colors.text }]}>PharmaGO</Text>
           <Text style={[styles.appTagline, { color: colors.textTertiary }]}>
             {t('tagline')}
           </Text>

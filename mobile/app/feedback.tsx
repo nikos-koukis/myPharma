@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { useTheme } from '../src/theme/ThemeProvider';
 import { api } from '../src/api/client';
 import { useTranslation } from '../src/i18n/translations';
@@ -66,7 +66,7 @@ export default function FeedbackScreen() {
     setIsSubmitting(true);
 
     try {
-      const deviceInfo = `${Device.modelName} (${Device.osName} ${Device.osVersion})`;
+      const deviceInfo = `${Platform.OS} ${Platform.Version}`;
 
       await api.post('/api/feedback', {
         type,
@@ -109,120 +109,120 @@ export default function FeedbackScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-          {/* Header */}
-          <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-            <Pressable
-              onPress={() => router.back()}
-              style={[styles.backButton, { backgroundColor: colors.surfaceSecondary }]}
-            >
-              <Ionicons name="arrow-back" size={22} color={colors.text} />
-            </Pressable>
-            <Text style={[styles.title, { color: colors.text }]}>{t('send_feedback')}</Text>
-          </View>
+            {/* Header */}
+            <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+              <Pressable
+                onPress={() => router.back()}
+                style={[styles.backButton, { backgroundColor: colors.surfaceSecondary }]}
+              >
+                <Ionicons name="arrow-back" size={22} color={colors.text} />
+              </Pressable>
+              <Text style={[styles.title, { color: colors.text }]}>{t('send_feedback')}</Text>
+            </View>
 
-          {/* Type Selector */}
-          <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t('feedback_type')}</Text>
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.typeGrid}>
-              {feedbackTypes.map((ft) => {
-                const isSelected = type === ft.value;
-                return (
-                  <Pressable
-                    key={ft.value}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setType(ft.value);
-                    }}
-                    style={[
-                      styles.typeOption,
-                      { backgroundColor: colors.surfaceSecondary },
-                      isSelected && { backgroundColor: ft.color + '20', borderColor: ft.color, borderWidth: 2 },
-                    ]}
-                  >
-                    <Ionicons
-                      name={ft.icon}
-                      size={24}
-                      color={isSelected ? ft.color : colors.textTertiary}
-                    />
-                    <Text
+            {/* Type Selector */}
+            <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t('feedback_type')}</Text>
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={styles.typeGrid}>
+                {feedbackTypes.map((ft) => {
+                  const isSelected = type === ft.value;
+                  return (
+                    <Pressable
+                      key={ft.value}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setType(ft.value);
+                      }}
                       style={[
-                        styles.typeLabel,
-                        { color: isSelected ? ft.color : colors.textSecondary },
+                        styles.typeOption,
+                        { backgroundColor: colors.surfaceSecondary },
+                        isSelected && { backgroundColor: ft.color + '20', borderColor: ft.color, borderWidth: 2 },
                       ]}
                     >
-                      {t(ft.labelKey)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                      <Ionicons
+                        name={ft.icon}
+                        size={24}
+                        color={isSelected ? ft.color : colors.textTertiary}
+                      />
+                      <Text
+                        style={[
+                          styles.typeLabel,
+                          { color: isSelected ? ft.color : colors.textSecondary },
+                        ]}
+                      >
+                        {t(ft.labelKey)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
-          </View>
 
-          {/* Message Input */}
-          <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t('feedback_message')}</Text>
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <TextInput
-              style={[styles.messageInput, { color: colors.text }]}
-              placeholder={t('feedback_placeholder')}
-              placeholderTextColor={colors.textTertiary}
-              multiline
-              numberOfLines={6}
-              textAlignVertical="top"
-              value={message}
-              onChangeText={setMessage}
-              maxLength={2000}
-              returnKeyType="done"
-              blurOnSubmit={true}
-              onSubmitEditing={Keyboard.dismiss}
-            />
-            <Text style={[styles.charCount, { color: colors.textTertiary }]}>
-              {message.length}/2000
-            </Text>
-          </View>
+            {/* Message Input */}
+            <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t('feedback_message')}</Text>
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <TextInput
+                style={[styles.messageInput, { color: colors.text }]}
+                placeholder={t('feedback_placeholder')}
+                placeholderTextColor={colors.textTertiary}
+                multiline
+                numberOfLines={6}
+                textAlignVertical="top"
+                value={message}
+                onChangeText={setMessage}
+                maxLength={2000}
+                returnKeyType="done"
+                blurOnSubmit={true}
+                onSubmitEditing={Keyboard.dismiss}
+              />
+              <Text style={[styles.charCount, { color: colors.textTertiary }]}>
+                {message.length}/2000
+              </Text>
+            </View>
 
-          {/* Email Input */}
-          <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t('feedback_email')}</Text>
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <TextInput
-              style={[styles.emailInput, { color: colors.text }]}
-              placeholder={t('feedback_email_placeholder')}
-              placeholderTextColor={colors.textTertiary}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={email}
-              onChangeText={setEmail}
-              returnKeyType="done"
-              onSubmitEditing={Keyboard.dismiss}
-            />
-          </View>
+            {/* Email Input */}
+            <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t('feedback_email')}</Text>
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <TextInput
+                style={[styles.emailInput, { color: colors.text }]}
+                placeholder={t('feedback_email_placeholder')}
+                placeholderTextColor={colors.textTertiary}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={email}
+                onChangeText={setEmail}
+                returnKeyType="done"
+                onSubmitEditing={Keyboard.dismiss}
+              />
+            </View>
 
-          {/* Submit Button */}
-          <Pressable
-            onPress={handleSubmit}
-            disabled={isSubmitting || message.trim().length < 10}
-            style={[
-              styles.submitButton,
-              { backgroundColor: colors.primary },
-              (isSubmitting || message.trim().length < 10) && { opacity: 0.5 },
-            ]}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <>
-                <Ionicons name="send" size={20} color="#FFF" />
-                <Text style={styles.submitText}>{t('feedback_submit')}</Text>
-              </>
+            {/* Submit Button */}
+            <Pressable
+              onPress={handleSubmit}
+              disabled={isSubmitting || message.trim().length < 10}
+              style={[
+                styles.submitButton,
+                { backgroundColor: colors.primary },
+                (isSubmitting || message.trim().length < 10) && { opacity: 0.5 },
+              ]}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="send" size={20} color="#FFF" />
+                  <Text style={styles.submitText}>{t('feedback_submit')}</Text>
+                </>
+              )}
+            </Pressable>
+
+            {/* Helper text */}
+            {message.trim().length > 0 && message.trim().length < 10 && (
+              <Text style={[styles.helperText, { color: colors.textTertiary }]}>
+                {10 - message.trim().length} χαρακτήρες ακόμα...
+              </Text>
             )}
-          </Pressable>
-
-          {/* Helper text */}
-          {message.trim().length > 0 && message.trim().length < 10 && (
-            <Text style={[styles.helperText, { color: colors.textTertiary }]}>
-              {10 - message.trim().length} χαρακτήρες ακόμα...
-            </Text>
-          )}
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>

@@ -4,7 +4,7 @@ export const translations = {
     el: {
         // Tabs
         map: 'Χάρτης',
-        pharmacies: 'Φαρμακεία',
+        pharmacies: 'Εφημερίες',
         settings: 'Ρυθμίσεις',
 
         // Map Screen
@@ -43,7 +43,7 @@ export const translations = {
         share_app: 'Μοιράσου την εφαρμογή',
         send_feedback: 'Στείλε σχόλιο',
         contact_us: 'Επικοινωνία',
-        copyright: '© 2026 myPharma',
+        copyright: '© 2026 PharmaGO',
         version: 'v',
         tagline: 'Βρες εφημερεύοντα φαρμακεία',
         my_location: 'Η ΠΕΡΙΟΧΗ ΣΟΥ',
@@ -62,6 +62,13 @@ export const translations = {
         are_on_duty: 'εφημερεύουν',
         pharmacy_singular: 'φαρμακείο',
         pharmacies_plural: 'φαρμακεία',
+
+        // Duty Status
+        open_until: 'Ανοιχτό μέχρι',
+        closes_in: 'Κλείνει σε',
+        tomorrow_at: 'Αύριο στις',
+        today_at: 'Σήμερα στις',
+        does_not_duty_today: 'Δεν εφημερεύει σήμερα',
 
         // Feedback
         feedback_type: 'ΤΥΠΟΣ',
@@ -128,7 +135,7 @@ export const translations = {
         share_app: 'Share the app',
         send_feedback: 'Send feedback',
         contact_us: 'Contact us',
-        copyright: '© 2026 myPharma',
+        copyright: '© 2026 PharmaGO',
         version: 'v',
         tagline: 'Find on-duty pharmacies',
         my_location: 'YOUR AREA',
@@ -147,6 +154,13 @@ export const translations = {
         are_on_duty: 'on duty',
         pharmacy_singular: 'pharmacy',
         pharmacies_plural: 'pharmacies',
+
+        // Duty Status
+        open_until: 'Open until',
+        closes_in: 'Closes in',
+        tomorrow_at: 'Tomorrow at',
+        today_at: 'Today at',
+        does_not_duty_today: 'Not on duty today',
 
         // Feedback
         feedback_type: 'TYPE',

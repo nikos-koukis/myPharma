@@ -308,7 +308,7 @@ export default function MapScreen() {
                 {selectedPharmacy.id === filteredData[0]?.id && (
                   <View style={[styles.closestBadge, { backgroundColor: colors.successLight }]}>
                     <Text style={[styles.closestBadgeText, { color: colors.success }]}>
-                      🟢 Κοντινότερο εφημερεύον
+                      🟢 {t('closest_on_duty')}
                     </Text>
                   </View>
                 )}
@@ -390,7 +390,7 @@ export default function MapScreen() {
               {/* Row 2: Status */}
               <View style={styles.statusRow}>
                 {(() => {
-                  const status = getPharmacyStatus(selectedPharmacy.duties);
+                  const status = getPharmacyStatus(selectedPharmacy.duties, t);
                   return (
                     <>
                       <View style={[styles.statusDot, { backgroundColor: colors[status.statusColor] }]} />
@@ -414,7 +414,7 @@ export default function MapScreen() {
                   openDirections(selectedPharmacy.lat, selectedPharmacy.lng, selectedPharmacy.name);
                 }}
               >
-                <Text style={styles.navButtonText}>Πλοήγηση</Text>
+                <Text style={styles.navButtonText}>{t('directions')}</Text>
                 <Ionicons name="arrow-forward" size={18} color="#000000" style={{ marginLeft: 8 }} />
               </Pressable>
               <Pressable
@@ -424,7 +424,7 @@ export default function MapScreen() {
                 ]}
                 onPress={() => setSelectedPharmacy(null)}
               >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Άλλο κοντινό</Text>
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('closest')}</Text>
               </Pressable>
             </View>
           </BlurView>

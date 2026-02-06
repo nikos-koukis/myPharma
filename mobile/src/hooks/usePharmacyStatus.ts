@@ -6,6 +6,8 @@ import {
   getCurrentMinutes,
 } from '../utils/dutySchedule';
 
+import { useTranslation } from '../i18n/translations';
+
 /**
  * Hook to get real-time pharmacy status that updates every minute
  *
@@ -13,19 +15,21 @@ import {
  * @returns Current status with auto-refresh
  */
 export function usePharmacyStatus(duties: DutySlot[] | undefined) {
+  const { t } = useTranslation();
+
   const [status, setStatus] = useState(() =>
-    getPharmacyStatus(duties ?? [])
+    getPharmacyStatus(duties ?? [], t)
   );
 
   // Update status when duties change
   useEffect(() => {
-    setStatus(getPharmacyStatus(duties ?? []));
-  }, [duties]);
+    setStatus(getPharmacyStatus(duties ?? [], t));
+  }, [duties, t]);
 
   // Auto-refresh every minute
   useEffect(() => {
     const updateStatus = () => {
-      setStatus(getPharmacyStatus(duties ?? []));
+      setStatus(getPharmacyStatus(duties ?? [], t));
     };
 
     // Calculate ms until next minute boundary for precise timing
@@ -44,7 +48,7 @@ export function usePharmacyStatus(duties: DutySlot[] | undefined) {
     }, msUntilNextMinute);
 
     return () => clearTimeout(initialTimeout);
-  }, [duties]);
+  }, [duties, t]);
 
   return status;
 }
@@ -104,9 +108,9 @@ export function useStatusCountdown(duties: DutySlot[] | undefined): {
     // Calculate time until closing
     const current = getCurrentMinutes();
     const end = parseInt(status.currentSlot.end.split(':')[0], 10) * 60 +
-                parseInt(status.currentSlot.end.split(':')[1], 10);
+      parseInt(status.currentSlot.end.split(':')[1], 10);
     const start = parseInt(status.currentSlot.start.split(':')[0], 10) * 60 +
-                  parseInt(status.currentSlot.start.split(':')[1], 10);
+      parseInt(status.currentSlot.start.split(':')[1], 10);
 
     let minutesUntilClose: number;
     if (end < start) {
