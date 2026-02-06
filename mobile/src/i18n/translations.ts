@@ -59,6 +59,7 @@ export const translations = {
         try_different_filter: 'Δοκιμάστε διαφορετικό φίλτρο',
         is_open: 'είναι ανοιχτά',
         are_opening_now: 'ανοίγουν τώρα',
+        are_on_duty: 'εφημερεύουν',
         pharmacy_singular: 'φαρμακείο',
         pharmacies_plural: 'φαρμακεία',
 
@@ -150,6 +151,7 @@ export const translations = {
         try_different_filter: 'Try a different filter',
         is_open: 'are open',
         are_opening_now: 'opening now',
+        are_on_duty: 'on duty',
         pharmacy_singular: 'pharmacy',
         pharmacies_plural: 'pharmacies',
 
