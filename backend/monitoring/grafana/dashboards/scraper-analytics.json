@@ -245,10 +245,57 @@
       ]
     },
     {
+      "id": 21,
+      "title": "Used Proxy",
+      "description": "Cities that required proxy (retried via proxy)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "postgresql"
+          },
+          "rawSql": "SELECT COUNT(*) FILTER (WHERE scr.used_proxy = true) AS \"Proxy Used\"\nFROM scrape_city_results scr\nJOIN scrape_runs sr ON sr.id = scr.scrape_run_id\nWHERE sr.started_at = (SELECT MAX(started_at) FROM scrape_runs)",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
       "id": 5,
       "title": "Last Run Time",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
       "datasource": {
         "type": "postgres",
         "uid": "postgresql"
@@ -293,7 +340,7 @@
       "id": 6,
       "title": "Total Runs",
       "type": "stat",
-      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 5 },
       "datasource": {
         "type": "postgres",
         "uid": "postgresql"
@@ -1229,6 +1276,22 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Proxy" },
+            "properties": [
+              { "id": "custom.width", "value": 70 },
+              {
+                "id": "custom.cellOptions",
+                "value": { "type": "color-background", "mode": "basic" }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "true": { "text": "YES", "color": "orange" }, "false": { "text": "-", "color": "transparent" } } }
+                ]
+              }
+            ]
           }
         ]
       },
@@ -1248,7 +1311,7 @@
             "type": "postgres",
             "uid": "postgresql"
           },
-          "rawSql": "SELECT scr.city AS \"City\",\n       scr.prefecture AS \"Prefecture\",\n       scr.status AS \"Status\",\n       scr.url AS \"URL\",\n       scr.http_status AS \"HTTP\",\n       scr.pharmacies_found AS \"Pharmacies\",\n       scr.duties_found AS \"Duties Saved\",\n       scr.duration_ms AS \"Duration (ms)\",\n       scr.error_message AS \"Error\",\n       scr.scraped_at AS \"Scraped At\"\nFROM scrape_city_results scr\nJOIN scrape_runs sr ON sr.id = scr.scrape_run_id\nWHERE sr.started_at = (SELECT MAX(started_at) FROM scrape_runs WHERE status = 'completed')\nORDER BY\n  CASE scr.status\n    WHEN 'failed' THEN 0\n    WHEN 'no_data' THEN 1\n    WHEN 'success' THEN 2\n  END,\n  scr.city",
+          "rawSql": "SELECT scr.city AS \"City\",\n       scr.prefecture AS \"Prefecture\",\n       scr.status AS \"Status\",\n       scr.url AS \"URL\",\n       scr.http_status AS \"HTTP\",\n       scr.pharmacies_found AS \"Pharmacies\",\n       scr.duties_found AS \"Duties Saved\",\n       scr.duration_ms AS \"Duration (ms)\",\n       scr.used_proxy AS \"Proxy\",\n       scr.error_message AS \"Error\",\n       scr.scraped_at AS \"Scraped At\"\nFROM scrape_city_results scr\nJOIN scrape_runs sr ON sr.id = scr.scrape_run_id\nWHERE sr.started_at = (SELECT MAX(started_at) FROM scrape_runs WHERE status = 'completed')\nORDER BY\n  CASE scr.status\n    WHEN 'failed' THEN 0\n    WHEN 'no_data' THEN 1\n    WHEN 'success' THEN 2\n  END,\n  scr.city",
           "format": "table",
           "rawQuery": true,
           "refId": "A"

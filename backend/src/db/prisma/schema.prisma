@@ -73,6 +73,7 @@ model ScrapeCityResult {
   dutiesFound     Int      @default(0) @map("duties_found")
   durationMs      Int      @default(0) @map("duration_ms")
   httpStatus      Int?     @map("http_status")
+  usedProxy       Boolean  @default(false) @map("used_proxy")
   errorMessage    String?  @map("error_message")
   scrapedAt       DateTime @default(now()) @map("scraped_at")
 

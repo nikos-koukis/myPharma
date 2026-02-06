@@ -45,6 +45,7 @@ export interface FetchResult {
   html: string;
   status: number;
   url: string;
+  usedProxy: boolean;
 }
 
 /**
@@ -106,6 +107,7 @@ export async function fetchPage(url: string, retries = 3): Promise<FetchResult> 
         html,
         status: response.status,
         url: response.url,
+        usedProxy: !!useProxy,
       };
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));

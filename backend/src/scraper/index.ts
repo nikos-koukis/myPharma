@@ -103,8 +103,8 @@ async function scrapeCityTracked(city: CityConfig, scrapeRunId: string): Promise
     console.log(`[scraper] Scraping ${city.name} (${city.prefecture})...`);
     console.log(`[scraper] URL: ${url}`);
 
-    const { html, status: httpStatus } = await fetchPage(url, config.scraper.retries);
-    console.log(`[scraper] Response: ${httpStatus}`);
+    const { html, status: httpStatus, usedProxy } = await fetchPage(url, config.scraper.retries);
+    console.log(`[scraper] Response: ${httpStatus}${usedProxy ? ' (via proxy)' : ''}`);
 
     const pharmacies = parsePharmacyHtml(html, city.name, city.prefecture);
     const enriched = pharmacies.map((p) => ({
@@ -128,6 +128,7 @@ async function scrapeCityTracked(city: CityConfig, scrapeRunId: string): Promise
         dutiesFound: dutiesSaved,
         durationMs: Date.now() - cityStart,
         httpStatus,
+        usedProxy,
       },
     });
 
