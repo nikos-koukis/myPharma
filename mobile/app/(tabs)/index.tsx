@@ -59,6 +59,15 @@ export default function MapScreen() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
   const [selectedPharmacy, setSelectedPharmacy] = useState<NearbyPharmacy | null>(null);
 
+  const handleClosePharmacy = useCallback(() => {
+    setSelectedPharmacy(null);
+    // If we were in "closest" mode (null) or a very wide radius, 
+    // reset to 10km to provide a better overview of the area.
+    if (selectedRadius === null || selectedRadius > 10000) {
+      setSelectedRadius(10000);
+    }
+  }, [selectedRadius]);
+
   const { data, isLoading, refetch, isRefetching } = useNearbyPharmacies({
     lat: lat ?? 0,
     lng: lng ?? 0,
@@ -348,7 +357,7 @@ export default function MapScreen() {
                 )}
               </View>
               <Pressable
-                onPress={() => setSelectedPharmacy(null)}
+                onPress={handleClosePharmacy}
                 hitSlop={8}
                 style={({ pressed }) => [
                   styles.closeBtn,
@@ -422,7 +431,7 @@ export default function MapScreen() {
                   styles.cancelButton,
                   { backgroundColor: 'rgba(255,255,255,0.12)', opacity: pressed ? 0.7 : 1 },
                 ]}
-                onPress={() => setSelectedPharmacy(null)}
+                onPress={handleClosePharmacy}
               >
                 <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('closest')}</Text>
               </Pressable>

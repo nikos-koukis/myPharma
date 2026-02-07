@@ -40,24 +40,7 @@ export function PharmacyMap({
     longitudeDelta: delta,
   };
 
-  // Track if we've done initial auto-select (to avoid re-selecting after dismiss)
-  const [isInitializing, setIsInitializing] = React.useState(true);
   const hasAutoSelectedRef = useRef(false);
-
-  // Auto-select closest pharmacy on initial load
-  useEffect(() => {
-    if (pharmacies.length > 0 && !hasAutoSelectedRef.current) {
-      // Pharmacies are already sorted by distance from API
-      const closest = pharmacies[0];
-      onSelectPharmacy(closest);
-      hasAutoSelectedRef.current = true;
-      setIsInitializing(false);
-    } else if (pharmacies.length === 0) {
-      setIsInitializing(false);
-    }
-  }, [pharmacies, onSelectPharmacy]);
-
-
 
   // Fetch real route when pharmacy is selected
   useEffect(() => {
@@ -75,8 +58,6 @@ export function PharmacyMap({
         { latitude: selectedPharmacy.lat, longitude: selectedPharmacy.lng },
       ]);
 
-      console.log('Fetching route for:', selectedPharmacy.name, 'Coordinates:', selectedPharmacy.lat, selectedPharmacy.lng);
-
       const coords = await getRoute(
         userLat,
         userLng,
@@ -87,10 +68,7 @@ export function PharmacyMap({
       if (!isActive) return;
 
       if (coords.length > 0) {
-        console.log('Route found with points:', coords.length);
         setRouteCoordinates(coords);
-      } else {
-        console.warn('Route fetch failed or returned empty. Staying with straight line.');
       }
     }
 
@@ -101,23 +79,27 @@ export function PharmacyMap({
     };
   }, [selectedPharmacy, userLat, userLng]);
 
+  // Auto-select closest pharmacy on initial load
+  useEffect(() => {
+    if (pharmacies.length > 0 && !hasAutoSelectedRef.current) {
+      // Pharmacies are already sorted by distance from API
+      const closest = pharmacies[0];
+      onSelectPharmacy(closest);
+      hasAutoSelectedRef.current = true;
+    }
+  }, [pharmacies, onSelectPharmacy]);
+
   // Fit map to show selected pharmacy or all pharmacies
   useEffect(() => {
     // Only fit if we have valid dimensions/ref
     if (!mapRef.current) return;
 
     if (selectedPharmacy) {
-      // Focus on User + Selected + the original closest pharmacy
-      const closest = pharmacies[0];
+      // Focus on User + Selected
       const fitPoints = [
         { latitude: userLat, longitude: userLng },
         { latitude: selectedPharmacy.lat, longitude: selectedPharmacy.lng },
       ];
-
-      // To ensure the "closest" one (the first in the list) is always visible
-      if (closest && closest.id !== selectedPharmacy.id) {
-        fitPoints.push({ latitude: closest.lat, longitude: closest.lng });
-      }
 
       mapRef.current.fitToCoordinates(fitPoints, {
         edgePadding: { top: 80, right: 80, bottom: 350, left: 80 },
@@ -136,7 +118,7 @@ export function PharmacyMap({
           animated: true,
         });
       } else {
-        // No pharmacies: Center on user but keep the zoom level relative to the search radius
+        // No pharmacies: Center on user
         const zoomDelta = Math.max(((radius || 5000) / 111_320) * 2, 0.04);
         mapRef.current.animateToRegion({
           latitude: userLat,
@@ -151,10 +133,6 @@ export function PharmacyMap({
   const handleMarkerPress = (pharmacy: NearbyPharmacy) => {
     onSelectPharmacy(pharmacy);
   };
-
-  useEffect(() => {
-    console.log('[PharmacyMap] user location:', userLat, userLng);
-  }, [userLat, userLng]);
 
   return (
     <MapView
@@ -214,19 +192,6 @@ export function PharmacyMap({
           </View>
         </View>
       </Marker>
-
-      {
-        isInitializing && (
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={styles.initializingOverlay}>
-              <View style={[styles.loaderBox, { backgroundColor: colors.surfaceSecondary }]}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={[styles.loaderText, { color: colors.text }]}>Προετοιμασία χάρτη...</Text>
-              </View>
-            </BlurView>
-          </View>
-        )
-      }
     </MapView >
   );
 }

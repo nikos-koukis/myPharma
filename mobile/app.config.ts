@@ -8,7 +8,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   orientation: 'portrait',
   icon: './assets/appiconph.png',
   userInterfaceStyle: 'automatic',
-  newArchEnabled: true,
+  newArchEnabled: false,
   scheme: 'pharmago',
   splash: {
     image: './assets/splash-pharmago.png',
@@ -34,7 +34,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     edgeToEdgeEnabled: true,
     permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
   },
-  plugins: ['expo-router', 'expo-location'],
+  plugins: ['expo-router', 'expo-location', 'expo-font'],
   extra: {
     apiEnv: process.env.API_ENV ?? 'PRODUCTION',
   },
