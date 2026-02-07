@@ -27,12 +27,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'gr.ktech.mypharma',
+    versionCode: 1,
     adaptiveIcon: {
       foregroundImage: './assets/appiconph.png',
       backgroundColor: '#000000',
     },
     edgeToEdgeEnabled: true,
     permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
+    config: {
+      googleMaps: {
+        apiKey: '', // ADD YOUR GOOGLE MAPS API KEY HERE
+      },
+    },
   },
   plugins: ['expo-router', 'expo-location', 'expo-font'],
   extra: {
