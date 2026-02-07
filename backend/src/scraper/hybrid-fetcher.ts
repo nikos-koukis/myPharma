@@ -1,10 +1,13 @@
 /**
- * curl-impersonate fetcher using Docker
+ * curl-impersonate fetcher
  * Uses curl-impersonate to mimic Chrome's TLS fingerprint and bypass Cloudflare
+ * - Linux: uses native curl_chrome116 (must be installed)
+ * - macOS: uses Docker with platform emulation
  */
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { platform } from 'os';
 import { config } from '../config';
 
 const execAsync = promisify(exec);
@@ -16,12 +19,14 @@ export interface FetchResult {
   usedProxy: boolean;
 }
 
-// Docker image for curl-impersonate Chrome variant
+// Docker image for curl-impersonate Chrome variant (macOS only)
 const DOCKER_IMAGE = 'lwthiker/curl-impersonate:0.6-chrome';
 const CURL_BIN = 'curl_chrome116';
+const IS_LINUX = platform() === 'linux';
 
 /**
- * Build Docker curl-impersonate command
+ * Build curl-impersonate command
+ * Uses native binary on Linux, Docker on macOS
  */
 function buildCommand(url: string, useProxy: boolean): string {
   const proxyUrl = config.scraper.proxyUrl;
@@ -41,7 +46,12 @@ function buildCommand(url: string, useProxy: boolean): string {
 
   curlArgs.push(`"${url}"`);
 
-  // Run via Docker with platform emulation for ARM Macs
+  if (IS_LINUX) {
+    // Native curl-impersonate on Linux
+    return `${CURL_BIN} ${curlArgs.join(' ')}`;
+  }
+
+  // Docker on macOS (with platform emulation for ARM)
   return `docker run --platform linux/amd64 --rm ${DOCKER_IMAGE} ${CURL_BIN} ${curlArgs.join(' ')}`;
 }
 
