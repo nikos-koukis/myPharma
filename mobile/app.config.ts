@@ -36,12 +36,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
     config: {
       googleMaps: {
-        apiKey: '', // ADD YOUR GOOGLE MAPS API KEY HERE
+        apiKey: 'AIzaSyB-ezR-pDdVPNDBziY-wu12eyVyyOO2mS4', // ADD YOUR GOOGLE MAPS API KEY HERE
       },
     },
   },
   plugins: ['expo-router', 'expo-location', 'expo-font'],
   extra: {
+    eas: {
+      projectId: 'ddef163b-37b7-4f05-8d62-2e6f32a08d69',
+    },
     apiEnv: process.env.API_ENV ?? 'PRODUCTION',
   },
 });
