@@ -41,6 +41,7 @@ function buildCommand(url: string, useProxy: boolean): string {
   ];
 
   if (useProxy && proxyUrl) {
+    curlArgs.push('-k');  // Skip SSL verification (required for Bright Data MITM proxy)
     curlArgs.push(`-x "${proxyUrl}"`);
   }
 
