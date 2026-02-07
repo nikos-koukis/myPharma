@@ -37,8 +37,8 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_SERVER_ROOT_URL: https://monitor.k-tech.net.gr
-      GF_SERVER_DOMAIN: monitor.k-tech.net.gr
+      GF_SERVER_ROOT_URL: https://monitor.pharmagoapp.gr
+      GF_SERVER_DOMAIN: monitor.pharmagoapp.gr
       GF_SERVER_HTTP_PORT: 3001
     volumes:
       - grafanadata:/var/lib/grafana

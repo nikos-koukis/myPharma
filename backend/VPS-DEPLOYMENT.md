@@ -1,7 +1,7 @@
-# VPS Deployment Guide — Monitoring at monitor.k-tech.net.gr
+# VPS Deployment Guide — Monitoring at monitor.pharmagoapp.gr
 
 **VPS IP:** `167.86.116.85`
-**Domain:** `monitor.k-tech.net.gr`
+**Domain:** `monitor.pharmagoapp.gr`
 
 ---
 
@@ -18,14 +18,14 @@ Wait for DNS propagation (can take 5 minutes to a few hours).
 Verify:
 
 ```bash
-dig monitor.k-tech.net.gr +short
+dig monitor.pharmagoapp.gr +short
 # Should return: 167.86.116.85
 ```
 
 Or:
 
 ```bash
-nslookup monitor.k-tech.net.gr
+nslookup monitor.pharmagoapp.gr
 ```
 
 ---
@@ -150,7 +150,7 @@ All 4 targets should be `"up"`:
 Create the Nginx server block for Grafana:
 
 ```bash
-sudo nano /etc/nginx/sites-available/monitor.k-tech.net.gr
+sudo nano /etc/nginx/sites-available/monitor.pharmagoapp.gr
 ```
 
 Paste this configuration:
@@ -158,7 +158,7 @@ Paste this configuration:
 ```nginx
 server {
     listen 80;
-    server_name monitor.k-tech.net.gr;
+    server_name monitor.pharmagoapp.gr;
 
     location / {
         proxy_pass http://127.0.0.1:3001;
@@ -185,7 +185,7 @@ server {
 Enable the site and test:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/monitor.k-tech.net.gr /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/monitor.pharmagoapp.gr /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -193,7 +193,7 @@ sudo systemctl reload nginx
 Verify HTTP access works (before SSL):
 
 ```bash
-curl -I http://monitor.k-tech.net.gr
+curl -I http://monitor.pharmagoapp.gr
 # Should return HTTP 200 with Grafana login page
 ```
 
@@ -210,7 +210,7 @@ sudo apt install certbot python3-certbot-nginx -y
 Obtain and auto-configure SSL:
 
 ```bash
-sudo certbot --nginx -d monitor.k-tech.net.gr
+sudo certbot --nginx -d monitor.pharmagoapp.gr
 ```
 
 Follow the prompts:
@@ -221,7 +221,7 @@ Follow the prompts:
 Verify SSL:
 
 ```bash
-curl -I https://monitor.k-tech.net.gr
+curl -I https://monitor.pharmagoapp.gr
 ```
 
 Certbot auto-renewal is set up via systemd timer. Verify:
@@ -234,7 +234,7 @@ sudo systemctl status certbot.timer
 
 ## 10. Access Grafana
 
-Open **https://monitor.k-tech.net.gr** in your browser.
+Open **https://monitor.pharmagoapp.gr** in your browser.
 
 - **Username:** `admin`
 - **Password:** `admin`

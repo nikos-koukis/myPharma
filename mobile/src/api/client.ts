@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 
 const API_URLS = {
   LOCAL: 'http://192.168.1.194:3000',
-  PRODUCTION: 'https://api.k-tech.net.gr',
+  PRODUCTION: 'https://api.pharmagoapp.gr',
 } as const;
 
 type ApiEnv = keyof typeof API_URLS;
