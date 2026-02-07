@@ -51,9 +51,14 @@ export async function pharmacyRoutes(app: FastifyInstance) {
 
     console.log(`[api] DB result: ${pharmacies.length} pharmacies found`);
 
-    await setCache(cacheKey, pharmacies);
+    const result = deduplicatePharmacies(pharmacies);
+    if (result.length !== pharmacies.length) {
+      console.log(`[api] Deduplicated: ${pharmacies.length} -> ${result.length}`);
+    }
+
+    await setCache(cacheKey, result);
     reply.header('X-Cache', 'MISS');
-    return pharmacies;
+    return result;
   });
 
   // GET /api/pharmacies/nearby?lat=37.98&lng=23.72&radius=2000&date=2026-01-30
@@ -147,9 +152,15 @@ export async function pharmacyRoutes(app: FastifyInstance) {
     }));
 
     console.log(`[api] DB result: ${results.length} nearby pharmacies found`);
-    await setCache(cacheKey, results);
+
+    const finalResults = deduplicatePharmacies(results);
+    if (finalResults.length !== results.length) {
+      console.log(`[api] Deduplicated: ${results.length} -> ${finalResults.length}`);
+    }
+
+    await setCache(cacheKey, finalResults);
     reply.header('X-Cache', 'MISS');
-    return results;
+    return finalResults;
   });
 
   // GET /api/pharmacies/:id
@@ -269,5 +280,26 @@ export async function pharmacyRoutes(app: FastifyInstance) {
     await setCache(cacheKey, regions, 86400);
     reply.header('X-Cache', 'MISS');
     return regions;
+  });
+}
+
+/**
+ * Deduplicate pharmacies by name and address to handle data inconsistencies
+ */
+function deduplicatePharmacies(pharmacies: any[]): any[] {
+  const seen = new Set<string>();
+  return pharmacies.filter((p) => {
+    // Basic normalization for comparison
+    const name = (p.name || '').trim().toLowerCase();
+    const address = (p.address || '').trim().toLowerCase();
+
+    // We also include phone if available for better accuracy
+    const phone = (p.phone || '').replace(/\D/g, '');
+
+    const key = `${name}|${address}${phone ? '|' + phone : ''}`;
+
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
   });
 }
