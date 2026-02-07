@@ -239,12 +239,9 @@ export function getPharmacyStatus(duties: DutySlot[], t?: (key: any) => string):
     let statusColor: 'success' | 'warning' | 'error' = 'success';
     let statusText = `${translate('open_until')} ${currentSlot.end}`;
 
-    if (minutesUntilClose <= 5) {
-      statusColor = 'error';
-      statusText = `${translate('closes_in')} ${minutesUntilClose}'`;
-    } else if (minutesUntilClose <= 20) {
+    if (minutesUntilClose <= 15) {
       statusColor = 'warning';
-      statusText = `${translate('open_until')} ${currentSlot.end}`;
+      statusText = `${translate('closes_in')} ${minutesUntilClose}'`;
     }
 
     return {

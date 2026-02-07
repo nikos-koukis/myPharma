@@ -107,7 +107,7 @@ export function PharmacyCard({ pharmacy, distance, isClosest }: Props) {
                 styles.statusText,
                 { color: statusBarColor }
               ]}>
-                {(status.statusColor === 'success' ? t('open') : t('closed')).toUpperCase()}
+                {(status.isOpen ? t('open') : t('closed')).toUpperCase()}
               </Text>
             </View>
           </View>
