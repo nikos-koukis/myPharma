@@ -1,6 +1,6 @@
 /**
- * HTML parser using cheerio for curl-based scraping.
- * Extracts the same data as the Puppeteer parser.
+ * HTML parser for xo.gr pharmacy data.
+ * Extracts pharmacy data from the embedded __NUXT_DATA__ JSON.
  */
 
 import * as cheerio from 'cheerio';
@@ -22,114 +22,318 @@ export interface PharmacyData {
 }
 
 /**
- * Parse pharmacy data from HTML using cheerio
+ * Parse pharmacy data from xo.gr HTML by extracting __NUXT_DATA__ JSON
+ * @param html - The HTML content to parse
+ * @param city - The city name
+ * @param prefecture - The prefecture name
+ * @param dateOverride - Optional ISO date (YYYY-MM-DD) to use instead of parsing from HTML
  */
-export function parsePharmacyHtml(html: string, city: string, prefecture: string): PharmacyData[] {
+export function parsePharmacyHtml(
+  html: string,
+  city: string,
+  prefecture: string,
+  dateOverride?: string
+): PharmacyData[] {
   const $ = cheerio.load(html);
-  const today = new Date().toISOString().split('T')[0];
+  const defaultDate = dateOverride || new Date().toISOString().split('T')[0];
 
-  // Map to group by pharmacy (name + address)
-  const pharmacyMap = new Map<string, {
-    name: string;
-    address: string;
-    phone: string | null;
-    duties: DutySlot[];
-  }>();
+  // Extract JSON from __NUXT_DATA__ script
+  const nuxtScript = $('#__NUXT_DATA__').html();
+  if (!nuxtScript) {
+    console.warn('[html-parser] No __NUXT_DATA__ found in page');
+    return [];
+  }
 
-  // Find all pharmacy cards
-  $('.DutiesResult').each((_, card) => {
-    const $card = $(card);
+  try {
+    // Parse the Nuxt 3 payload (it's a JSON array with references)
+    const nuxtData = JSON.parse(nuxtScript);
+    const listings = extractListings(nuxtData);
 
-    const nameEl = $card.find('.pharmacy-title h2, .pharmacy-title').first();
-    const addressEl = $card.find('.pharmacies-card-address').first();
-    const phoneEl = $card.find('.pharmacies-phone-button').first();
-    const dutyHoursEl = $card.find('.DutyTimes').first();
+    const results: PharmacyData[] = [];
+    const seen = new Set<string>();
 
-    const name = nameEl.text().trim();
-    const address = addressEl.text().trim();
-    const phoneText = phoneEl.text().trim();
-    const phone = phoneText.replace(/\D/g, '').length > 5 ? phoneText.trim() : null;
+    for (const listing of listings) {
+      const name = listing.fullName || listing.name || '';
+      const rawAddress = listing.listingAddress || listing.address || '';
 
-    if (!name || !address) return;
-
-    const key = `${name}|${address}`;
-    if (!pharmacyMap.has(key)) {
-      pharmacyMap.set(key, { name, address, phone, duties: [] });
-    }
-
-    // Extract duty hours text
-    const hoursText = dutyHoursEl.text().trim();
-
-    // Parse ALL time ranges - format: "14:30-17:30" or "21:00-02:00 (Επόμενης)"
-    const timePattern = /(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})(?:\s*\(?(Επόμενης|επόμενης)?\)?)?/g;
-    const timeMatches = [...hoursText.matchAll(timePattern)];
-
-    for (const match of timeMatches) {
-      const start = match[1];
-      const end = match[2];
-      const startHour = parseInt(start.split(':')[0], 10);
-      const endHour = parseInt(end.split(':')[0], 10);
-      const extendsToNextDay = !!match[3] || endHour < startHour;
-
-      // Determine duty type based on hours
-      let type: 'regular' | 'extended' | 'on_duty' = 'on_duty';
-      if (startHour >= 8 && startHour < 14 && !extendsToNextDay) {
-        type = 'regular';  // Morning regular hours
-      } else if (startHour >= 17 && startHour < 21 && !extendsToNextDay) {
-        type = 'extended'; // Extended evening hours
+      // Safety: ensure we have strings
+      if (typeof name !== 'string' || typeof rawAddress !== 'string') {
+        console.warn('[html-parser] Skipping listing with non-string name/address');
+        continue;
       }
-      // Night shifts (21:00+) or extending to next day = on_duty
 
-      pharmacyMap.get(key)!.duties.push({ start, end, type });
+      const address = cleanAddress(rawAddress);
+      if (!name || !address) continue;
+
+      // Extract phone from phones object
+      let phone: string | null = null;
+      if (listing.phones) {
+        // mainPhone format: "tel:+302102626067"
+        if (listing.phones.mainPhone) {
+          phone = formatPhone(listing.phones.mainPhone);
+        }
+        // Fallback to phoneItems
+        const phoneItems = listing.phones.phoneItems;
+        if (!phone && phoneItems && phoneItems.length > 0) {
+          const item = phoneItems[0];
+          phone = item.description || formatPhone(item.phone || '');
+        }
+      }
+
+      // Extract duty info from pharmacyInfo
+      const pharmacyInfo = typeof listing.pharmacyInfo === 'string' ? listing.pharmacyInfo : '';
+      const duties = parseDutyHours(pharmacyInfo);
+
+      // Dedupe by name + address
+      const key = `${name}|${address}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      results.push({
+        name,
+        address,
+        phone,
+        city,
+        region: prefecture,
+        dutyDate: defaultDate,
+        duties: duties.length > 0 ? duties : [{ start: '00:00', end: '23:59', type: 'on_duty' }],
+      });
     }
-  });
 
-  // Extract region from page header
-  let region = prefecture; // Default to prefecture from city config
-  const regionEl = $('.pharmacies-regions-header h1');
-  if (regionEl.length) {
-    const regionText = regionEl.text();
-    // Clean and split the header text into lines
-    const lines = regionText
-      .replace(/Pharmacies on Duty & Open Pharmacies/i, '')
-      .replace(/Εφημερεύοντα & Ανοιχτά Φαρμακεία/i, '')
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
+    if (results.length > 0) {
+      console.log(`[parser] ${city}: ${results.length} pharmacies`);
+    }
+    return results;
+  } catch (err) {
+    console.error('[html-parser] Failed to parse __NUXT_DATA__:', err);
+    return [];
+  }
+}
 
-    // Last line is typically the prefecture (ΘΕΣΣΑΛΟΝΙΚΗΣ)
-    if (lines.length >= 2) {
-      region = lines[lines.length - 1];
-    } else if (lines.length === 1) {
-      region = lines[0];
+// Types for parsed listings
+interface PhoneData {
+  hasPhone?: boolean;
+  mainPhone?: string;
+  phoneItems?: Array<{ phone?: string; description?: string }>;
+}
+
+interface ListingData {
+  fullName?: string;
+  name?: string;
+  listingAddress?: string;
+  address?: string;
+  phones?: PhoneData;
+  pharmacyInfo?: string;
+}
+
+/**
+ * Extract listing objects from Nuxt 3 payload array.
+ * Nuxt 3 uses a serialization format where objects reference array positions.
+ */
+function extractListings(data: unknown[]): ListingData[] {
+  const listings: ListingData[] = [];
+
+  // Helper to resolve a value - if it's a number, look up that index
+  function resolve(val: unknown): unknown {
+    if (typeof val === 'number' && val >= 0 && val < data.length) {
+      return data[val];
+    }
+    return val;
+  }
+
+  // Resolve a string field (may be a reference or direct string)
+  function resolveString(val: unknown): string | undefined {
+    const resolved = resolve(val);
+    if (typeof resolved === 'string') {
+      return resolved;
+    }
+    return undefined;
+  }
+
+  // Resolve phones object
+  function resolvePhones(val: unknown): PhoneData | undefined {
+    const resolved = resolve(val);
+    if (!resolved || typeof resolved !== 'object' || Array.isArray(resolved)) {
+      return undefined;
+    }
+
+    const phonesObj = resolved as Record<string, unknown>;
+
+    // Resolve nested fields in phones
+    const mainPhone = resolveString(phonesObj.mainPhone);
+    const hasPhone = typeof phonesObj.hasPhone === 'boolean' ? phonesObj.hasPhone : undefined;
+
+    // Resolve phoneItems array
+    let phoneItems: Array<{ phone?: string; description?: string }> | undefined;
+    const itemsRef = resolve(phonesObj.phoneItems);
+    if (Array.isArray(itemsRef)) {
+      phoneItems = [];
+      for (const itemRef of itemsRef) {
+        const item = resolve(itemRef);
+        if (item && typeof item === 'object' && !Array.isArray(item)) {
+          const itemObj = item as Record<string, unknown>;
+          phoneItems.push({
+            phone: resolveString(itemObj.phone),
+            description: resolveString(itemObj.description),
+          });
+        }
+      }
+    }
+
+    return { hasPhone, mainPhone, phoneItems };
+  }
+
+  // Build a listing from an object, resolving all references
+  function buildListing(obj: Record<string, unknown>): ListingData | null {
+    const fullName = resolveString(obj.fullName);
+    const name = resolveString(obj.name);
+    const listingAddress = resolveString(obj.listingAddress);
+    const address = resolveString(obj.address);
+    const pharmacyInfo = resolveString(obj.pharmacyInfo);
+    const phones = resolvePhones(obj.phones);
+
+    // Must have name and address
+    if (!(fullName || name) || !(listingAddress || address)) {
+      return null;
+    }
+
+    return { fullName, name, listingAddress, address, phones, pharmacyInfo };
+  }
+
+  // Find listing objects by scanning for objects with pharmacy-like properties
+  for (let i = 0; i < data.length; i++) {
+    const item = data[i];
+
+    // Check if this looks like a listing object
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const obj = item as Record<string, unknown>;
+
+      // A listing has fullName or name + listingAddress or address
+      // Check if the values (possibly references) resolve to strings
+      const hasName = resolveString(obj.fullName) || resolveString(obj.name);
+      const hasAddr = resolveString(obj.listingAddress) || resolveString(obj.address);
+
+      if (hasName && hasAddr) {
+        const listing = buildListing(obj);
+        if (listing) {
+          listings.push(listing);
+        }
+      }
     }
   }
 
-  // Convert map to results array
-  const results: PharmacyData[] = [];
-  for (const [, data] of pharmacyMap) {
-    // Sort duties by start time
-    data.duties.sort((a, b) => {
-      const aHour = parseInt(a.start.split(':')[0], 10);
-      const bHour = parseInt(b.start.split(':')[0], 10);
-      return aHour - bHour;
-    });
+  // Also search for listings array pattern
+  // The Nuxt format often has a "listings" or "data" key that points to an array
+  for (let i = 0; i < data.length; i++) {
+    const item = data[i];
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const obj = item as Record<string, unknown>;
 
-    results.push({
-      name: data.name,
-      address: data.address,
-      phone: data.phone,
-      city,
-      region,
-      dutyDate: today,
-      duties: data.duties.length > 0 ? data.duties : [{ start: '00:00', end: '23:59', type: 'on_duty' }],
-    });
+      // Check for listings/data array reference
+      for (const key of ['listings', 'data', 'results', 'items']) {
+        const ref = resolve(obj[key]);
+        if (Array.isArray(ref)) {
+          // Resolve each item in the array
+          for (const idx of ref) {
+            const listingObj = resolve(idx);
+            if (
+              listingObj &&
+              typeof listingObj === 'object' &&
+              !Array.isArray(listingObj)
+            ) {
+              const lo = listingObj as Record<string, unknown>;
+              const listing = buildListing(lo);
+              if (listing) {
+                // Avoid duplicates
+                const exists = listings.some(
+                  l => l.fullName === listing.fullName && l.listingAddress === listing.listingAddress
+                );
+                if (!exists) {
+                  listings.push(listing);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
-  console.log(`[html-parser] Extracted location: region="${region}", city="${city}"`);
-  console.log(`[html-parser] Found ${results.length} pharmacies in ${city}`);
+  return listings;
+}
 
-  return results;
+/**
+ * Format phone from tel: URL format
+ * Input: "tel:+302102626067"
+ * Output: "210 262 6067"
+ */
+function formatPhone(phone: string): string | null {
+  if (!phone) return null;
+
+  // Remove tel: prefix
+  let cleaned = phone.replace(/^tel:\+?/, '');
+
+  // Remove country code (30 for Greece)
+  if (cleaned.startsWith('30')) {
+    cleaned = cleaned.substring(2);
+  }
+
+  // Format as XXX XXX XXXX
+  if (cleaned.length === 10) {
+    return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6)}`;
+  }
+
+  // Return as-is if already formatted or non-standard
+  if (cleaned.includes(' ') || cleaned.length < 7) {
+    return cleaned || null;
+  }
+
+  return cleaned;
+}
+
+/**
+ * Parse duty hours from pharmacyInfo text
+ * Format: "09:00 - 14:00" or "Εφημερεύει 21:00 - 08:00"
+ */
+function parseDutyHours(text: string): DutySlot[] {
+  if (!text) return [];
+
+  const duties: DutySlot[] = [];
+
+  // Extract time ranges: "HH:MM - HH:MM"
+  const timePattern = /(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/g;
+  const matches = [...text.matchAll(timePattern)];
+
+  for (const match of matches) {
+    const start = match[1];
+    const end = match[2];
+    const startHour = parseInt(start.split(':')[0], 10);
+    const endHour = parseInt(end.split(':')[0], 10);
+    const extendsToNextDay = endHour < startHour;
+
+    // Determine duty type based on hours
+    let type: 'regular' | 'extended' | 'on_duty' = 'on_duty';
+    if (startHour >= 8 && startHour < 14 && !extendsToNextDay) {
+      type = 'regular'; // Morning regular hours
+    } else if (startHour >= 17 && startHour < 21 && !extendsToNextDay) {
+      type = 'extended'; // Extended evening hours
+    }
+    // Night shifts (21:00+) or extending to next day = on_duty
+
+    duties.push({ start, end, type });
+  }
+
+  return duties;
+}
+
+/**
+ * Clean address by removing route/directions text
+ */
+function cleanAddress(address: string): string {
+  return address
+    .replace(/\s*\(Δρομολόγηση\)\s*/gi, '')
+    .replace(/\s*\(Directions\)\s*/gi, '')
+    .trim();
 }
 
 /**
@@ -137,7 +341,16 @@ export function parsePharmacyHtml(html: string, city: string, prefecture: string
  */
 export function hasPharmacyData(html: string): boolean {
   const $ = cheerio.load(html);
-  return $('.DutiesResult').length > 0;
+  const nuxtScript = $('#__NUXT_DATA__').html();
+  if (!nuxtScript) return false;
+
+  try {
+    const data = JSON.parse(nuxtScript);
+    const listings = extractListings(data);
+    return listings.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 /**

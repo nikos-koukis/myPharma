@@ -8,22 +8,16 @@ interface GeoResult {
 export async function geocodeAddress(address: string, city: string): Promise<GeoResult | null> {
   const query = `${address}, ${city}, Greece`;
 
-  console.log(`[geocoder] Geocoding: "${query}"`);
-
   // Try Nominatim first (free)
-  console.log(`[geocoder] Trying Nominatim (free)...`);
   let result = await geocodeNominatim(query);
 
   // Fallback to Geoapify if Nominatim fails and API key is set
   if (!result && config.geocoder.apiKey) {
-    console.log(`[geocoder] Nominatim failed, falling back to Geoapify...`);
     result = await geocodeGeoapify(query);
   }
 
   if (result) {
-    console.log(`[geocoder] Result: lat=${result.lat}, lng=${result.lng}`);
-  } else {
-    console.log(`[geocoder] No result found from any provider`);
+    console.log(`[geo] ${city}: ${result.lat.toFixed(4)}, ${result.lng.toFixed(4)}`);
   }
 
   return result;
@@ -32,13 +26,10 @@ export async function geocodeAddress(address: string, city: string): Promise<Geo
 async function geocodeNominatim(query: string): Promise<GeoResult | null> {
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
 
-  console.log(`[geocoder] Nominatim URL: ${url}`);
-
   const res = await fetch(url, {
     headers: { 'User-Agent': 'myPharma/1.0' },
   });
 
-  console.log(`[geocoder] Nominatim response: ${res.status}`);
   if (!res.ok) return null;
 
   const data = await res.json() as Array<{ lat: string; lon: string }>;
@@ -50,10 +41,7 @@ async function geocodeNominatim(query: string): Promise<GeoResult | null> {
 async function geocodeGeoapify(query: string): Promise<GeoResult | null> {
   const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(query)}&apiKey=${config.geocoder.apiKey}`;
 
-  console.log(`[geocoder] Geoapify URL: ${url.replace(config.geocoder.apiKey, '***')}`);
-
   const res = await fetch(url);
-  console.log(`[geocoder] Geoapify response: ${res.status}`);
   if (!res.ok) return null;
 
   const data = await res.json() as {

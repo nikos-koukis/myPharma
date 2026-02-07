@@ -35,11 +35,11 @@ export const config = {
   },
 
   scraper: {
-    pharmacyCron: '0 */3 * * *',          // Every 3 hours
+    pharmacyCron: '0 0 * * *',             // Daily at midnight
     concurrency: 3,
     timeout: 30000,
     retries: 3,
-    baseUrl: 'https://www.vrisko.gr/efimeries-farmakeion',
+    baseUrl: 'https://www.xo.gr/efimerevonta-farmakeia',
     proxyUrl: env('SCRAPER_PROXY_URL', ''),  // Used on retry only, e.g., http://user:pass@proxy:8080
   },
 

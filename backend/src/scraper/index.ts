@@ -1,6 +1,6 @@
-import { fetchPage } from './curl-fetcher';
+import { fetchPage, closeBrowser } from './hybrid-fetcher';
 import { parsePharmacyHtml, PharmacyData } from './html-parser';
-import { getActiveCities, CityConfig, getCityUrl } from './city-list';
+import { getActiveCities, CityConfig, getCityUrl, getTodayForXo, getTomorrowForXo } from './city-list';
 import { geocodeAddress, sleep } from './geocoder';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db/client';
@@ -28,17 +28,17 @@ export async function runScraper(): Promise<void> {
   let failedCities = 0;
 
   try {
-    const totalCities = cities.length;
-    for (let i = 0; i < totalCities; i += config.scraper.concurrency) {
+    // Parallel scraping in batches
+    for (let i = 0; i < cities.length; i += config.scraper.concurrency) {
       const batch = cities.slice(i, i + config.scraper.concurrency);
-      const batchEnd = Math.min(i + config.scraper.concurrency, totalCities);
-      console.log(`[scraper] Scraping cities [${i + 1}-${batchEnd}/${totalCities}]...`);
+      const batchEnd = Math.min(i + config.scraper.concurrency, cities.length);
+      console.log(`[scraper] [${i + 1}-${batchEnd}/${cities.length}]`);
 
-      const batchResults = await Promise.allSettled(
+      const results = await Promise.allSettled(
         batch.map((city) => scrapeCityTracked(city, scrapeRun.id))
       );
 
-      for (const result of batchResults) {
+      for (const result of results) {
         if (result.status === 'fulfilled') {
           totalScraped += result.value.pharmaciesFound;
           saved += result.value.dutiesSaved;
@@ -46,7 +46,7 @@ export async function runScraper(): Promise<void> {
           else failedCities++;
         } else {
           failedCities++;
-          console.error(`[scraper] Batch error:`, result.reason);
+          console.error(`[scraper] Error:`, result.reason);
         }
       }
     }
@@ -67,6 +67,7 @@ export async function runScraper(): Promise<void> {
     console.log(`[scraper] Scraped ${totalScraped}, saved ${saved} pharmacies`);
     await invalidatePattern('pharmacies:*');
     console.log('[scraper] Cache invalidated');
+    await closeBrowser();
     console.log('[scraper] Done');
   } catch (err) {
     await prisma.scrapeRun.update({
@@ -82,6 +83,7 @@ export async function runScraper(): Promise<void> {
         errorMessage: err instanceof Error ? err.message : String(err),
       },
     });
+    await closeBrowser();
     throw err;
   }
 }
@@ -94,27 +96,48 @@ interface CityScrapResult {
 
 /**
  * Scrape a single city with tracking — records results to scrape_city_results
+ * Scrapes both today and tomorrow to capture night-duty pharmacies (e.g., 21:00-08:00)
  */
 async function scrapeCityTracked(city: CityConfig, scrapeRunId: string): Promise<CityScrapResult> {
   const cityStart = Date.now();
-  const url = getCityUrl(city);
+  const todayDate = getTodayForXo();
+  const tomorrowDate = getTomorrowForXo();
+
+  // Scrape both days to get complete coverage of night shifts
+  const datesToScrape = [todayDate, tomorrowDate];
+
+  let totalPharmacies = 0;
+  let totalDuties = 0;
+  let lastHttpStatus = 0;
+  let lastUsedProxy = false;
+  const urls: string[] = [];
 
   try {
-    console.log(`[scraper] Scraping ${city.name} (${city.prefecture})...`);
-    console.log(`[scraper] URL: ${url}`);
+    for (const date of datesToScrape) {
+      const url = getCityUrl(city, date);
+      urls.push(url);
 
-    const { html, status: httpStatus, usedProxy } = await fetchPage(url, config.scraper.retries);
-    console.log(`[scraper] Response: ${httpStatus}${usedProxy ? ' (via proxy)' : ''}`);
+      const { html, status: httpStatus, usedProxy } = await fetchPage(url, config.scraper.retries);
+      lastHttpStatus = httpStatus;
+      lastUsedProxy = usedProxy;
 
-    const pharmacies = parsePharmacyHtml(html, city.name, city.prefecture);
-    const enriched = pharmacies.map((p) => ({
-      ...p,
-      region: p.region || city.prefecture,
-    }));
+      // Rate limit: wait 3s between requests
+      await sleep(3000);
 
-    let dutiesSaved = 0;
-    for (const data of enriched) {
-      dutiesSaved += await savePharmacy(data);
+
+      // Parse with the specific date we're scraping
+      const isoDate = xoDateToIso(date);
+      const pharmacies = parsePharmacyHtml(html, city.name, city.prefecture, isoDate);
+      const enriched = pharmacies.map((p) => ({
+        ...p,
+        region: p.region || city.prefecture,
+      }));
+
+      totalPharmacies += enriched.length;
+
+      for (const data of enriched) {
+        totalDuties += await savePharmacy(data);
+      }
     }
 
     await prisma.scrapeCityResult.create({
@@ -122,17 +145,17 @@ async function scrapeCityTracked(city: CityConfig, scrapeRunId: string): Promise
         scrapeRunId,
         city: city.name,
         prefecture: city.prefecture,
-        status: enriched.length > 0 ? 'success' : 'no_data',
-        url,
-        pharmaciesFound: enriched.length,
-        dutiesFound: dutiesSaved,
+        status: totalPharmacies > 0 ? 'success' : 'no_data',
+        url: urls.join(' | '),
+        pharmaciesFound: totalPharmacies,
+        dutiesFound: totalDuties,
         durationMs: Date.now() - cityStart,
-        httpStatus,
-        usedProxy,
+        httpStatus: lastHttpStatus,
+        usedProxy: lastUsedProxy,
       },
     });
 
-    return { pharmaciesFound: enriched.length, dutiesSaved, success: true };
+    return { pharmaciesFound: totalPharmacies, dutiesSaved: totalDuties, success: true };
   } catch (err) {
     console.error(`[scraper] Failed to scrape ${city.name}:`, err);
 
@@ -142,7 +165,7 @@ async function scrapeCityTracked(city: CityConfig, scrapeRunId: string): Promise
         city: city.name,
         prefecture: city.prefecture,
         status: 'failed',
-        url,
+        url: urls.join(' | ') || getCityUrl(city, todayDate),
         durationMs: Date.now() - cityStart,
         errorMessage: err instanceof Error ? err.message : String(err),
       },
@@ -153,11 +176,18 @@ async function scrapeCityTracked(city: CityConfig, scrapeRunId: string): Promise
 }
 
 /**
+ * Convert xo.gr date format (DD/MM/YYYY) to ISO format (YYYY-MM-DD)
+ */
+function xoDateToIso(xoDate: string): string {
+  const [day, month, year] = xoDate.split('/');
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Save pharmacy data to database
  */
 async function savePharmacy(data: PharmacyData): Promise<number> {
   try {
-    console.log(`[scraper] Saving ${data.name} (${data.city})`);
     const pharmacy = await prisma.pharmacy.upsert({
       where: {
         name_address_city: {
