@@ -3,10 +3,10 @@ import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 import Constants from 'expo-constants';
 
-// Default location for simulator/development: Patras, Greece
+// Default location for simulator/development: Triandria, Thessaloniki
 const SIMULATOR_DEFAULT_LOCATION = {
-  lat: 38.2466,
-  lng: 21.7346,
+  lat: 40.6212,
+  lng: 22.9691,
 };
 
 // Detect if running in iOS simulator (San Francisco area)

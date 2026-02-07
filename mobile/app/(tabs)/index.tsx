@@ -61,12 +61,18 @@ export default function MapScreen() {
 
   const handleClosePharmacy = useCallback(() => {
     setSelectedPharmacy(null);
-    // If we were in "closest" mode (null) or a very wide radius, 
-    // reset to 10km to provide a better overview of the area.
-    if (selectedRadius === null || selectedRadius > 10000) {
+    // When closing a pharmacy preview, if we don't have a radius set,
+    // default to 10km to show a good overview of the area.
+    if (selectedRadius === null) {
       setSelectedRadius(10000);
     }
   }, [selectedRadius]);
+
+  const handleRadiusChange = useCallback((radius: number) => {
+    setSelectedRadius(radius);
+    setSelectedPharmacy(null);
+    // Force a small delay to ensure the map reacts to the null pharmacy first
+  }, []);
 
   const { data, isLoading, refetch, isRefetching } = useNearbyPharmacies({
     lat: lat ?? 0,
@@ -138,7 +144,7 @@ export default function MapScreen() {
             {RADIUS_OPTIONS(t).map((option) => (
               <Pressable
                 key={option.value}
-                onPress={() => setSelectedRadius(option.value)}
+                onPress={() => handleRadiusChange(option.value)}
               >
                 <BlurView
                   intensity={selectedRadius === option.value ? 100 : 60}
@@ -174,6 +180,7 @@ export default function MapScreen() {
             radius={selectedRadius}
             selectedPharmacy={selectedPharmacy}
             onSelectPharmacy={setSelectedPharmacy}
+            isRefetching={isRefetching}
           />
         </View>
       )}
@@ -269,7 +276,7 @@ export default function MapScreen() {
                         borderColor: selectedRadius === option.value ? colors.primary : colors.border,
                       },
                     ]}
-                    onPress={() => setSelectedRadius(option.value)}
+                    onPress={() => handleRadiusChange(option.value)}
                   >
                     <Text
                       style={[

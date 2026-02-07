@@ -62,6 +62,18 @@ export function useAutoLocation(): AutoLocationState {
           return;
         }
 
+        // --- Simulator Override Logic ---
+        const { Platform } = require('react-native');
+        const isSimulator = Platform.OS === 'ios' &&
+          coords.latitude > 37.7 && coords.latitude < 37.9 &&
+          coords.longitude > -122.5 && coords.longitude < -122.3;
+
+        if (isSimulator) {
+          console.log('[autoLocation] Detected simulator (SF), overriding to Thessaloniki...');
+          coords = { latitude: 40.6212, longitude: 22.9691 };
+        }
+        // --------------------------------
+
         console.log('[autoLocation] Got coordinates:', coords.latitude, coords.longitude);
 
         // Find nearest pharmacy to determine the city

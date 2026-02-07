@@ -16,6 +16,7 @@ interface Props {
   radius: number | null;
   selectedPharmacy: NearbyPharmacy | null;
   onSelectPharmacy: (pharmacy: NearbyPharmacy | null) => void;
+  isRefetching?: boolean;
 }
 
 export function PharmacyMap({
@@ -25,19 +26,20 @@ export function PharmacyMap({
   radius,
   selectedPharmacy,
   onSelectPharmacy,
+  isRefetching,
 }: Props) {
   const { colors, isDark } = useTheme();
   const mapRef = useRef<MapView>(null);
   const [routeCoordinates, setRouteCoordinates] = React.useState<{ latitude: number; longitude: number }[]>([]);
 
-  // Calculate map delta based on radius (default to 5km if no radius selected)
-  const delta = ((radius || 5000) / 111_320) * 1.0;
+  // Calculate map delta based on radius
+  const getDelta = (r: number | null) => ((r || 5000) / 111_320) * 3.5;
 
   const initialRegion: Region = {
     latitude: userLat,
     longitude: userLng,
-    latitudeDelta: delta,
-    longitudeDelta: delta,
+    latitudeDelta: getDelta(radius),
+    longitudeDelta: getDelta(radius),
   };
 
   const hasAutoSelectedRef = useRef(false);
@@ -45,154 +47,165 @@ export function PharmacyMap({
   // Fetch real route when pharmacy is selected
   useEffect(() => {
     let isActive = true;
-
     async function fetchRoute() {
       if (!selectedPharmacy) {
         if (isActive) setRouteCoordinates([]);
         return;
       }
-
-      // SET FALLBACK IMMEDIATELY so preview is visible while loading
       setRouteCoordinates([
         { latitude: userLat, longitude: userLng },
         { latitude: selectedPharmacy.lat, longitude: selectedPharmacy.lng },
       ]);
-
-      const coords = await getRoute(
-        userLat,
-        userLng,
-        selectedPharmacy.lat,
-        selectedPharmacy.lng
-      );
-
+      const coords = await getRoute(userLat, userLng, selectedPharmacy.lat, selectedPharmacy.lng);
       if (!isActive) return;
-
-      if (coords.length > 0) {
-        setRouteCoordinates(coords);
-      }
+      if (coords.length > 0) setRouteCoordinates(coords);
     }
-
     fetchRoute();
-
-    return () => {
-      isActive = false;
-    };
+    return () => { isActive = false; };
   }, [selectedPharmacy, userLat, userLng]);
 
-  // Auto-select closest pharmacy on initial load
+  // Auto-select ONLY if in "closest" mode (initial state)
   useEffect(() => {
-    if (pharmacies.length > 0 && !hasAutoSelectedRef.current) {
-      // Pharmacies are already sorted by distance from API
+    if (radius === null && pharmacies.length > 0 && !hasAutoSelectedRef.current) {
       const closest = pharmacies[0];
       onSelectPharmacy(closest);
       hasAutoSelectedRef.current = true;
     }
-  }, [pharmacies, onSelectPharmacy]);
+  }, [pharmacies.length, radius]);
 
-  // Fit map to show selected pharmacy or all pharmacies
+  // React to Radius changes specifically for immediate feedback
   useEffect(() => {
-    // Only fit if we have valid dimensions/ref
-    if (!mapRef.current) return;
+    if (mapRef.current && !selectedPharmacy) {
+      const d = getDelta(radius);
+      mapRef.current.animateToRegion({
+        latitude: userLat,
+        longitude: userLng,
+        latitudeDelta: d,
+        longitudeDelta: d,
+      }, 700);
+    }
+  }, [radius]);
 
-    if (selectedPharmacy) {
-      // Focus on User + Selected
-      const fitPoints = [
-        { latitude: userLat, longitude: userLng },
-        { latitude: selectedPharmacy.lat, longitude: selectedPharmacy.lng },
-      ];
+  // Fitting logic - Ensures all markers are visible
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!mapRef.current || isRefetching) return;
 
-      mapRef.current.fitToCoordinates(fitPoints, {
-        edgePadding: { top: 80, right: 80, bottom: 350, left: 80 },
-        animated: true,
-      });
-    } else if (hasAutoSelectedRef.current) {
-      if (pharmacies.length > 0) {
-        // Zoom to show user and all results
-        const coordinates = [
+      if (selectedPharmacy) {
+        const points = [
+          { latitude: userLat, longitude: userLng },
+          { latitude: selectedPharmacy.lat, longitude: selectedPharmacy.lng },
+        ];
+        mapRef.current.fitToCoordinates(points, {
+          edgePadding: { top: 100, right: 80, bottom: 350, left: 80 },
+          animated: true,
+        });
+      } else if (pharmacies.length > 0) {
+        // Fit ALL results found
+        const points = [
           { latitude: userLat, longitude: userLng },
           ...pharmacies.map(p => ({ latitude: p.lat, longitude: p.lng }))
         ];
-
-        mapRef.current.fitToCoordinates(coordinates, {
-          edgePadding: { top: 100, right: 60, bottom: 100, left: 60 },
+        mapRef.current.fitToCoordinates(points, {
+          edgePadding: { top: 150, right: 100, bottom: 250, left: 100 },
           animated: true,
         });
-      } else {
-        // No pharmacies: Center on user
-        const zoomDelta = Math.max(((radius || 5000) / 111_320) * 2, 0.04);
-        mapRef.current.animateToRegion({
-          latitude: userLat,
-          longitude: userLng,
-          latitudeDelta: zoomDelta,
-          longitudeDelta: zoomDelta,
-        }, 500);
       }
-    }
-  }, [selectedPharmacy, userLat, userLng, pharmacies, radius]);
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [selectedPharmacy, pharmacies, radius, isRefetching]);
 
   const handleMarkerPress = (pharmacy: NearbyPharmacy) => {
     onSelectPharmacy(pharmacy);
   };
 
   return (
-    <MapView
-      ref={mapRef}
-      style={styles.map}
-      initialRegion={initialRegion}
-      showsUserLocation={true}
-      userLocationAnnotationTitle=""
-      showsMyLocationButton={false}
-      userInterfaceStyle={isDark ? 'dark' : 'light'}
-      mapPadding={{ top: 0, right: 0, bottom: 180, left: 0 }}
-      pitchEnabled={true}
-    >
-
-      {/* 1. Background Glow Circle */}
-      <Circle
-        center={{ latitude: userLat, longitude: userLng }}
-        radius={120}
-        fillColor="rgba(191, 223, 210, 0.35)"
-        strokeColor="rgba(191, 223, 210, 0.5)"
-        strokeWidth={1.5}
-        zIndex={1}
-      />
-
-      {/* 1. Route line */}
-      {selectedPharmacy && routeCoordinates.length > 0 && (
-        <Polyline
-          coordinates={routeCoordinates}
-          strokeColor="#0ED991"
-          strokeWidth={5}
-          zIndex={100}
-        />
-      )}
-
-      {/* 2. Pharmacy markers */}
-      {pharmacies.map((p) => (
-        <PharmacyMarker
-          key={p.id}
-          pharmacy={p}
-          isSelected={selectedPharmacy?.id === p.id}
-          onPress={handleMarkerPress}
-          colors={colors}
-        />
-      ))}
-
-      {/* 3. User Walking Marker (LAST IN LIST = TOP VISIBILITY) */}
-      <Marker
-        key="user-location-stable"
-        coordinate={{ latitude: userLat, longitude: userLng }}
-        anchor={{ x: 0.5, y: 0.5 }}
-        zIndex={10000}
-        tracksViewChanges={true}
+    <View style={styles.map}>
+      <MapView
+        ref={mapRef}
+        style={StyleSheet.absoluteFill}
+        initialRegion={initialRegion}
+        showsUserLocation={true}
+        userLocationAnnotationTitle=""
+        showsMyLocationButton={false}
+        userInterfaceStyle={isDark ? 'dark' : 'light'}
+        mapPadding={{ top: 0, right: 0, bottom: 180, left: 0 }}
+        paddingAdjustmentBehavior="always"
+        pitchEnabled={true}
       >
-        <View collapsable={false} style={styles.userLocationOuter}>
-          <View collapsable={false} style={styles.userLocationInner}>
-            <Ionicons name="walk" size={14} color="#1A1D21" />
+        <Circle
+          center={{ latitude: userLat, longitude: userLng }}
+          radius={120}
+          fillColor="rgba(191, 223, 210, 0.35)"
+          strokeColor="rgba(191, 223, 210, 0.5)"
+          strokeWidth={1.5}
+          zIndex={1}
+        />
+
+        {selectedPharmacy && routeCoordinates.length > 0 && (
+          <Polyline
+            coordinates={routeCoordinates}
+            strokeColor="#0ED991"
+            strokeWidth={5}
+            zIndex={100}
+          />
+        )}
+
+        {/* 2. Pharmacy markers with Spiderfy (spread out if same coords) */}
+        {pharmacies.map((p, index) => {
+          // Detect if this marker overlaps with previous markers
+          const offset = 0.0003; // Increased offset for better spread
+          const overlaps = pharmacies.slice(0, index).filter(
+            other => Math.abs(other.lat - p.lat) < 0.0001 && Math.abs(other.lng - p.lng) < 0.0001
+          ).length;
+
+          const displayLat = p.lat + (overlaps > 0 ? (Math.sin(overlaps * 1.25) * offset) : 0);
+          const displayLng = p.lng + (overlaps > 0 ? (Math.cos(overlaps * 1.25) * offset) : 0);
+
+          return (
+            <PharmacyMarker
+              key={`${p.id}-${overlaps}`}
+              pharmacy={{ ...p, lat: displayLat, lng: displayLng }}
+              isSelected={selectedPharmacy?.id === p.id}
+              onPress={onSelectPharmacy}
+              colors={colors}
+            />
+          );
+        })}
+
+        <Marker
+          key="user-location-stable"
+          coordinate={{ latitude: userLat, longitude: userLng }}
+          anchor={{ x: 0.5, y: 0.5 }}
+          zIndex={10000}
+        >
+          <View collapsable={false} style={styles.userLocationOuter}>
+            <View collapsable={false} style={styles.userLocationInner}>
+              <Ionicons name="walk" size={14} color="#1A1D21" />
+            </View>
           </View>
+        </Marker>
+      </MapView>
+
+      {/* Results HUD for confirmation */}
+      <View style={styles.hudContainer}>
+        <BlurView intensity={70} style={styles.hudInner}>
+          <Text style={[styles.hudText, { color: colors.text }]}>
+            {pharmacies.length} φαρμακεία
+          </Text>
+        </BlurView>
+      </View>
+
+      {isRefetching && (
+        <View style={styles.loadingOverlay}>
+          <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={styles.loaderBox}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={[styles.loaderText, { color: colors.text }]}>Ενημέρωση...</Text>
+          </BlurView>
         </View>
-      </Marker>
-    </MapView >
+      )}
+    </View>
   );
 }
 
@@ -207,20 +220,7 @@ const PharmacyMarker = React.memo(({
   onPress: (p: NearbyPharmacy) => void;
   colors: any;
 }) => {
-  const [tracksView, setTracksView] = React.useState(true);
-
-  // Use a unique key that changes when selection state changes.
-  // This FORCES the native marker to completely re-mount, which 
-  // fixes the disappearing icon bug in react-native-maps.
   const markerKey = `${pharmacy.id}-${isSelected ? 'selected' : 'unselected'}`;
-
-  React.useEffect(() => {
-    setTracksView(true);
-    const timer = setTimeout(() => {
-      setTracksView(false);
-    }, 5000); // 5s is very safe for rendering
-    return () => clearTimeout(timer);
-  }, [isSelected]);
 
   return (
     <Marker
@@ -229,7 +229,7 @@ const PharmacyMarker = React.memo(({
       onPress={() => onPress(pharmacy)}
       zIndex={isSelected ? 5000 : 1000}
       anchor={{ x: 0.5, y: 1 }}
-      tracksViewChanges={tracksView}
+      tracksViewChanges={true}
     >
       <View
         collapsable={false}
@@ -251,33 +251,12 @@ const PharmacyMarker = React.memo(({
       </View>
     </Marker>
   );
-}, (prev, next) => (
-  prev.isSelected === next.isSelected &&
-  prev.pharmacy.id === next.pharmacy.id &&
-  prev.colors.primary === next.colors.primary
-));
+});
 
 const styles = StyleSheet.create({
   map: {
     width: '100%',
     height: '100%',
-  },
-  markerGlow: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  markerContainer: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
   },
   userLocationOuter: {
     width: 28,
@@ -306,12 +285,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 6,
   },
-  userLocationDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FFFFFF',
-  },
   pharmacyMarker: {
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
@@ -320,32 +293,30 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
   },
-  userMarkerContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 122, 255, 0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  hudContainer: {
+    position: 'absolute',
+    top: 140, // Below radius buttons
+    left: '50%',
+    transform: [{ translateX: -60 }],
+    zIndex: 100,
   },
-  userMarkerDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#007AFF',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-    elevation: 4,
+  hudInner: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.7)',
   },
-  initializingOverlay: {
+  hudText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: 'transparent',
+    zIndex: 1000,
   },
   loaderBox: {
     flexDirection: 'row',
@@ -359,6 +330,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
+    overflow: 'hidden',
   },
   loaderText: {
     fontSize: 14,

@@ -70,6 +70,7 @@ export const translations = {
         closes_in: 'Κλείνει σε',
         tomorrow_at: 'Αύριο στις',
         today_at: 'Σήμερα στις',
+        next_day: 'Επόμενης',
         does_not_duty_today: 'Δεν εφημερεύει σήμερα',
 
         // Feedback
@@ -163,6 +164,7 @@ export const translations = {
         closes_in: 'Closes in',
         tomorrow_at: 'Tomorrow at',
         today_at: 'Today at',
+        next_day: 'Next day',
         does_not_duty_today: 'Not on duty today',
 
         // Feedback

@@ -191,7 +191,7 @@ export default function OnDutyScreen() {
               {t('open')}
             </Text>
             <View style={[styles.filterBadge, { backgroundColor: filter === 'open' ? colors.success : colors.border }]}>
-              <Text style={[styles.filterBadgeText, { color: filter === 'open' ? '#FFFFFF' : colors.textSecondary }]}>
+              <Text style={[styles.filterBadgeText, { color: filter === 'open' ? '#000000' : colors.textSecondary }]}>
                 {openCount}
               </Text>
             </View>
@@ -219,7 +219,7 @@ export default function OnDutyScreen() {
               {t('opening_soon')}
             </Text>
             <View style={[styles.filterBadge, { backgroundColor: filter === 'opening_soon' ? colors.warning : colors.border }]}>
-              <Text style={[styles.filterBadgeText, { color: filter === 'opening_soon' ? '#FFFFFF' : colors.textSecondary }]}>
+              <Text style={[styles.filterBadgeText, { color: filter === 'opening_soon' ? '#000000' : colors.textSecondary }]}>
                 {soonCount}
               </Text>
             </View>
