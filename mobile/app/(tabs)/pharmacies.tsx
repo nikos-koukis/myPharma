@@ -79,15 +79,20 @@ export default function OnDutyScreen() {
 
       return { ...p, distance_meters, _isOpen, _isOpeningSoon };
     }).sort((a, b) => {
-      // Sort: Open -> Opening Soon -> Closed (if all selected)
-      // If same filtering, sort by distance
+      // CRITICAL: Pharmacies with distance should ALWAYS come before those without
+      const aHasDistance = a.distance_meters !== undefined;
+      const bHasDistance = b.distance_meters !== undefined;
 
-      // Primary Sort: Distance (always most important for User)
-      if (a.distance_meters !== undefined && b.distance_meters !== undefined) {
-        return a.distance_meters - b.distance_meters;
+      // If only one has distance, prioritize it
+      if (aHasDistance && !bHasDistance) return -1;
+      if (!aHasDistance && bHasDistance) return 1;
+
+      // Both have distance: sort by actual distance
+      if (aHasDistance && bHasDistance) {
+        return a.distance_meters! - b.distance_meters!;
       }
 
-      // Secondary fallback
+      // Neither has distance: sort by open status
       if (a._isOpen && !b._isOpen) return -1;
       if (!a._isOpen && b._isOpen) return 1;
 
