@@ -1,12 +1,20 @@
 import { api } from './client';
 import type { Pharmacy, NearbyPharmacy, RegionCity } from '../types';
+import { normalizeGreekLocation } from '../utils/greekText';
 
 export async function getOnDutyPharmacies(params: {
   region?: string;
   city?: string;
   date?: string;
 }): Promise<Pharmacy[]> {
-  const { data } = await api.get('/api/pharmacies/on-duty', { params });
+  // Normalize region and city to ensure consistent casing
+  const normalizedParams = {
+    ...params,
+    region: params.region ? normalizeGreekLocation(params.region) : undefined,
+    city: params.city ? normalizeGreekLocation(params.city) : undefined,
+  };
+
+  const { data } = await api.get('/api/pharmacies/on-duty', { params: normalizedParams });
   return data;
 }
 
