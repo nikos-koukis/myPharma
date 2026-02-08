@@ -581,7 +581,7 @@
             "type": "postgres",
             "uid": "postgresql"
           },
-          "rawSql": "WITH today AS (\n  SELECT scr.city, scr.pharmacies_found, scr.prefecture\n  FROM scrape_city_results scr\n  JOIN scrape_runs sr ON sr.id = scr.scrape_run_id\n  WHERE sr.started_at::date = CURRENT_DATE\n    AND scr.status = 'success'\n    AND scr.prefecture LIKE '${prefecture}'\n    AND scr.city LIKE '${city}'\n),\nyesterday AS (\n  SELECT scr.city, scr.pharmacies_found, scr.prefecture\n  FROM scrape_city_results scr\n  JOIN scrape_runs sr ON sr.id = scr.scrape_run_id\n  WHERE sr.started_at::date = CURRENT_DATE - 1\n    AND scr.status = 'success'\n    AND scr.prefecture LIKE '${prefecture}'\n    AND scr.city LIKE '${city}'\n)\nSELECT COALESCE(t.city, y.city) AS city,\n       COALESCE(t.pharmacies_found, 0) AS \"Today\",\n       COALESCE(y.pharmacies_found, 0) AS \"Yesterday\",\n       COALESCE(t.pharmacies_found, 0) - COALESCE(y.pharmacies_found, 0) AS \"Difference\"\nFROM today t\nFULL OUTER JOIN yesterday y ON t.city = y.city\nORDER BY \"Difference\" ASC",
+          "rawSql": "WITH today AS (\n  SELECT scr.city, scr.pharmacies_found, scr.prefecture\n  FROM scrape_city_results scr\n  JOIN scrape_runs sr ON sr.id = scr.scrape_run_id\n  WHERE sr.started_at::date = CURRENT_DATE\n    AND scr.status = 'success'\n    AND scr.prefecture LIKE ${prefecture:sqlstring}\n    AND scr.city LIKE ${city:sqlstring}\n),\nyesterday AS (\n  SELECT scr.city, scr.pharmacies_found, scr.prefecture\n  FROM scrape_city_results scr\n  JOIN scrape_runs sr ON sr.id = scr.scrape_run_id\n  WHERE sr.started_at::date = CURRENT_DATE - 1\n    AND scr.status = 'success'\n    AND scr.prefecture LIKE ${prefecture:sqlstring}\n    AND scr.city LIKE ${city:sqlstring}\n)\nSELECT COALESCE(t.city, y.city) AS city,\n       COALESCE(t.pharmacies_found, 0) AS \"Today\",\n       COALESCE(y.pharmacies_found, 0) AS \"Yesterday\",\n       COALESCE(t.pharmacies_found, 0) - COALESCE(y.pharmacies_found, 0) AS \"Difference\"\nFROM today t\nFULL OUTER JOIN yesterday y ON t.city = y.city\nORDER BY \"Difference\" ASC",
           "format": "table",
           "rawQuery": true,
           "refId": "A"
@@ -809,7 +809,7 @@
             "type": "postgres",
             "uid": "postgresql"
           },
-          "rawSql": "SELECT scr.city AS \"City\",\n       scr.prefecture AS \"Prefecture\",\n       scr.url AS \"URL\",\n       scr.http_status AS \"HTTP Status\",\n       scr.error_message AS \"Error\",\n       scr.duration_ms AS \"Duration (ms)\",\n       scr.scraped_at AS \"Time\"\nFROM scrape_city_results scr\nJOIN scrape_runs sr ON sr.id = scr.scrape_run_id\nWHERE scr.status = 'failed'\n  AND $__timeFilter(sr.started_at)\n  AND scr.prefecture LIKE '${prefecture}'\n  AND scr.city LIKE '${city}'\nORDER BY scr.scraped_at DESC\nLIMIT 50",
+          "rawSql": "SELECT scr.city AS \"City\",\n       scr.prefecture AS \"Prefecture\",\n       scr.url AS \"URL\",\n       scr.http_status AS \"HTTP Status\",\n       scr.error_message AS \"Error\",\n       scr.duration_ms AS \"Duration (ms)\",\n       scr.scraped_at AS \"Time\"\nFROM scrape_city_results scr\nJOIN scrape_runs sr ON sr.id = scr.scrape_run_id\nWHERE scr.status = 'failed'\n  AND $__timeFilter(sr.started_at)\n  AND scr.prefecture LIKE ${prefecture:sqlstring}\n  AND scr.city LIKE ${city:sqlstring}\nORDER BY scr.scraped_at DESC\nLIMIT 50",
           "format": "table",
           "rawQuery": true,
           "refId": "A"
@@ -870,7 +870,7 @@
             "type": "postgres",
             "uid": "postgresql"
           },
-          "rawSql": "SELECT scr.city AS \"City\",\n       scr.duration_ms AS \"Duration (ms)\"\nFROM scrape_city_results scr\nJOIN scrape_runs sr ON sr.id = scr.scrape_run_id\nWHERE sr.started_at = (SELECT MAX(started_at) FROM scrape_runs WHERE status = 'completed')\n  AND scr.prefecture LIKE '${prefecture}'\n  AND scr.city LIKE '${city}'\n  AND scr.status LIKE '${status}'\nORDER BY scr.duration_ms DESC",
+          "rawSql": "SELECT scr.city AS \"City\",\n       scr.duration_ms AS \"Duration (ms)\"\nFROM scrape_city_results scr\nJOIN scrape_runs sr ON sr.id = scr.scrape_run_id\nWHERE sr.started_at = (SELECT MAX(started_at) FROM scrape_runs WHERE status = 'completed')\n  AND scr.prefecture LIKE ${prefecture:sqlstring}\n  AND scr.city LIKE ${city:sqlstring}\n  AND scr.status LIKE ${status:sqlstring}\nORDER BY scr.duration_ms DESC",
           "format": "table",
           "rawQuery": true,
           "refId": "A"
@@ -1311,7 +1311,7 @@
             "type": "postgres",
             "uid": "postgresql"
           },
-          "rawSql": "SELECT scr.city AS \"City\",\n       scr.prefecture AS \"Prefecture\",\n       scr.status AS \"Status\",\n       scr.url AS \"URL\",\n       scr.http_status AS \"HTTP\",\n       scr.pharmacies_found AS \"Pharmacies\",\n       scr.duties_found AS \"Duties Saved\",\n       scr.duration_ms AS \"Duration (ms)\",\n       scr.used_proxy AS \"Proxy\",\n       scr.error_message AS \"Error\",\n       scr.scraped_at AS \"Scraped At\"\nFROM scrape_city_results scr\nJOIN scrape_runs sr ON sr.id = scr.scrape_run_id\nWHERE sr.started_at = (SELECT MAX(started_at) FROM scrape_runs WHERE status = 'completed')\n  AND scr.prefecture LIKE '${prefecture}'\n  AND scr.city LIKE '${city}'\n  AND scr.status LIKE '${status}'\nORDER BY\n  CASE scr.status\n    WHEN 'failed' THEN 0\n    WHEN 'no_data' THEN 1\n    WHEN 'success' THEN 2\n  END,\n  scr.city",
+          "rawSql": "SELECT scr.city AS \"City\",\n       scr.prefecture AS \"Prefecture\",\n       scr.status AS \"Status\",\n       scr.url AS \"URL\",\n       scr.http_status AS \"HTTP\",\n       scr.pharmacies_found AS \"Pharmacies\",\n       scr.duties_found AS \"Duties Saved\",\n       scr.duration_ms AS \"Duration (ms)\",\n       scr.used_proxy AS \"Proxy\",\n       scr.error_message AS \"Error\",\n       scr.scraped_at AS \"Scraped At\"\nFROM scrape_city_results scr\nJOIN scrape_runs sr ON sr.id = scr.scrape_run_id\nWHERE sr.started_at = (SELECT MAX(started_at) FROM scrape_runs WHERE status = 'completed')\n  AND scr.prefecture LIKE ${prefecture:sqlstring}\n  AND scr.city LIKE ${city:sqlstring}\n  AND scr.status LIKE ${status:sqlstring}\nORDER BY\n  CASE scr.status\n    WHEN 'failed' THEN 0\n    WHEN 'no_data' THEN 1\n    WHEN 'success' THEN 2\n  END,\n  scr.city",
           "format": "table",
           "rawQuery": true,
           "refId": "A"
@@ -1425,7 +1425,7 @@
           "type": "postgres",
           "uid": "postgresql"
         },
-        "query": "SELECT DISTINCT city FROM scrape_city_results WHERE prefecture LIKE '$prefecture' ORDER BY city",
+        "query": "SELECT DISTINCT city FROM scrape_city_results WHERE prefecture LIKE ${prefecture:sqlstring} ORDER BY city",
         "refresh": 1,
         "includeAll": true,
         "multi": true,
