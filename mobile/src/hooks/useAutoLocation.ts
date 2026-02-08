@@ -8,6 +8,16 @@ interface AutoLocationState {
   error: string | null;
 }
 
+// Helper to convert to Title Case (Αχαΐας instead of ΑΧΑΪΑΣ or αχαϊασ)
+function toTitleCase(str: string): string {
+  if (!str) return str;
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
 export function useAutoLocation(): AutoLocationState {
   const [detecting, setDetecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,12 +103,17 @@ export function useAutoLocation(): AutoLocationState {
 
         // Get the closest pharmacy's city and region
         const closest = nearby[0];
-        console.log('[autoLocation] Detected location:', closest.region, closest.city);
+        console.log('[autoLocation] Detected location (raw):', closest.region, closest.city);
+
+        // Normalize to Title Case to avoid case sensitivity issues
+        const normalizedRegion = toTitleCase(closest.region);
+        const normalizedCity = toTitleCase(closest.city);
+        console.log('[autoLocation] Normalized location:', normalizedRegion, normalizedCity);
 
         // Save the user's location
         setUserLocation({
-          prefecture: closest.region,
-          city: closest.city,
+          prefecture: normalizedRegion,
+          city: normalizedCity,
           lat: coords.latitude,
           lng: coords.longitude,
         });
