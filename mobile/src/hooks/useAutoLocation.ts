@@ -2,20 +2,11 @@ import { useEffect, useState } from 'react';
 import * as Location from 'expo-location';
 import { useAppStore } from '../store';
 import { getNearbyPharmacies } from '../api/pharmacies';
+import { normalizeGreekLocation } from '../utils/greekText';
 
 interface AutoLocationState {
   detecting: boolean;
   error: string | null;
-}
-
-// Helper to convert to Title Case (Αχαΐας instead of ΑΧΑΪΑΣ or αχαϊασ)
-function toTitleCase(str: string): string {
-  if (!str) return str;
-  return str
-    .toLowerCase()
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
 }
 
 export function useAutoLocation(): AutoLocationState {
@@ -106,8 +97,8 @@ export function useAutoLocation(): AutoLocationState {
         console.log('[autoLocation] Detected location (raw):', closest.region, closest.city);
 
         // Normalize to Title Case to avoid case sensitivity issues
-        const normalizedRegion = toTitleCase(closest.region);
-        const normalizedCity = toTitleCase(closest.city);
+        const normalizedRegion = normalizeGreekLocation(closest.region);
+        const normalizedCity = normalizeGreekLocation(closest.city);
         console.log('[autoLocation] Normalized location:', normalizedRegion, normalizedCity);
 
         // Save the user's location
