@@ -185,29 +185,59 @@ function xoDateToIso(xoDate: string): string {
 
 /**
  * Save pharmacy data to database
+ * First tries to find existing pharmacy by phone or coordinates to avoid duplicates
+ * when the same pharmacy appears with different city names
  */
 async function savePharmacy(data: PharmacyData): Promise<number> {
   try {
-    const pharmacy = await prisma.pharmacy.upsert({
-      where: {
-        name_address_city: {
+    // First, try to find an existing pharmacy by phone (if available)
+    // This catches duplicates where city name differs (e.g., "Πάτρα" vs "Παραλία Πατρών Αχαΐας")
+    let existingPharmacy = null;
+
+    if (data.phone) {
+      existingPharmacy = await prisma.pharmacy.findFirst({
+        where: {
+          phone: data.phone,
+          name: data.name, // Same name + same phone = same pharmacy
+        },
+      });
+    }
+
+    let pharmacy;
+
+    if (existingPharmacy) {
+      // Update the existing pharmacy (keeps original city, updates other fields)
+      pharmacy = await prisma.pharmacy.update({
+        where: { id: existingPharmacy.id },
+        data: {
+          phone: data.phone,
+          region: data.region,
+          // Don't update city/address to preserve the original record
+        },
+      });
+    } else {
+      // No duplicate found, do the standard upsert by name/address/city
+      pharmacy = await prisma.pharmacy.upsert({
+        where: {
+          name_address_city: {
+            name: data.name,
+            address: data.address,
+            city: data.city,
+          },
+        },
+        update: {
+          phone: data.phone,
+          region: data.region,
+        },
+        create: {
           name: data.name,
           address: data.address,
+          phone: data.phone,
           city: data.city,
+          region: data.region,
         },
-      },
-      update: {
-        phone: data.phone,
-        region: data.region,
-      },
-      create: {
-        name: data.name,
-        address: data.address,
-        phone: data.phone,
-        city: data.city,
-        region: data.region,
-      },
-    });
+      });
+    }
 
     // Geocode if missing coordinates
     if (pharmacy.lat === null || pharmacy.lng === null) {
