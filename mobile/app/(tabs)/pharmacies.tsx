@@ -164,8 +164,6 @@ export default function OnDutyScreen() {
         <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
       </Pressable>
 
-      <DatePicker />
-
       {/* Filter Chips */}
       {pharmaciesWithDistance.length > 0 && (
         <View style={styles.filterContainer}>
@@ -376,7 +374,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   list: {
-    paddingBottom: 32,
+    paddingBottom: 120, // Extra padding to prevent last item from being hidden behind tab bar
     paddingTop: 8,
   },
   resultCount: {

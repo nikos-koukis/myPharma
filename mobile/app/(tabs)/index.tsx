@@ -103,6 +103,31 @@ export default function MapScreen() {
     });
   }, [data, searchQuery, statusFilter]);
 
+  // Auto-select radius based on closest pharmacy distance (only on first load)
+  useEffect(() => {
+    if (data && data.length > 0 && selectedRadius === null && lat && lng) {
+      const closestPharmacy = data[0]; // Already sorted by distance from API
+      if (closestPharmacy.distance_meters) {
+        const distanceInMeters = closestPharmacy.distance_meters;
+
+        // Choose radius based on closest pharmacy distance
+        let autoRadius: number;
+        if (distanceInMeters <= 3000) {
+          autoRadius = 5000; // 5km
+        } else if (distanceInMeters <= 8000) {
+          autoRadius = 10000; // 10km
+        } else if (distanceInMeters <= 12000) {
+          autoRadius = 15000; // 15km
+        } else {
+          autoRadius = 50000; // 50km
+        }
+
+        console.log(`[AutoRadius] Closest pharmacy at ${(distanceInMeters / 1000).toFixed(1)}km, selecting ${autoRadius / 1000}km radius`);
+        setSelectedRadius(autoRadius);
+      }
+    }
+  }, [data, selectedRadius, lat, lng]);
+
   // Clear selection if radius change leads to no results
   useEffect(() => {
     if (filteredData.length === 0 && selectedPharmacy) {

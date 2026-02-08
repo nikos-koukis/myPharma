@@ -396,11 +396,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   name: {
-    fontSize: 22,
+    fontSize: 18, // Reduced from 22 to handle long pharmacy names
     fontWeight: '800',
     letterSpacing: -0.5,
     marginBottom: 4,
-    lineHeight: 28,
+    lineHeight: 24,
   },
   region: {
     fontSize: 16,

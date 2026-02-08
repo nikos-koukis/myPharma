@@ -58,7 +58,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       userLocation: loc,
       selectedPrefecture: loc.prefecture,
-      selectedCity: null, // Always default to the larger area (Prefecture) for a full list
+      selectedCity: loc.city, // Default to city for more specific results
       locationDetected: true,
     });
   },
