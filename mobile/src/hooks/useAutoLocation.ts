@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import * as Location from 'expo-location';
 import { useAppStore } from '../store';
 import { getNearbyPharmacies } from '../api/pharmacies';
-import { normalizeGreekLocation } from '../utils/greekText';
+import { normalizeGreekLocation, extractAreaFromAddress } from '../utils/greekText';
 
 interface AutoLocationState {
   detecting: boolean;
@@ -94,12 +94,15 @@ export function useAutoLocation(): AutoLocationState {
 
         // Get the closest pharmacy's city and region
         const closest = nearby[0];
-        console.log('[autoLocation] Detected location (raw):', closest.region, closest.city);
+        console.log('[autoLocation] Detected location (raw):', closest.region, closest.city, closest.address);
+
+        // Extract specific area from address (e.g., "Triandria" from "Street 1, 12345 Triandria Thessaloniki")
+        const specificArea = extractAreaFromAddress(closest.address);
 
         // Normalize to Title Case to avoid case sensitivity issues
         const normalizedRegion = normalizeGreekLocation(closest.region);
-        const normalizedCity = normalizeGreekLocation(closest.city);
-        console.log('[autoLocation] Normalized location:', normalizedRegion, normalizedCity);
+        const normalizedCity = specificArea || normalizeGreekLocation(closest.city); // Use specific area if available
+        console.log('[autoLocation] Normalized location:', normalizedRegion, normalizedCity, specificArea ? '(specific area)' : '(general city)');
 
         // Save the user's location
         setUserLocation({

@@ -31,3 +31,33 @@ export function toTitleCase(str: string): string {
 export function normalizeGreekLocation(location: string): string {
     return toTitleCase(location.trim());
 }
+
+/**
+ * Extracts specific area/neighborhood from a full address.
+ * 
+ * Examples:
+ * - "Ειρήνης & Φιλίας 3, 26500 Δεμένικα Αχαΐας" → "Δεμένικα"
+ * - "25ης Μαρτίου 39, 26333 Παραλία Αχαΐας" → "Παραλία"
+ * - "Τσιμισκή 45, 54623 Θεσσαλονίκη" → "Θεσσαλονίκη"
+ */
+export function extractAreaFromAddress(address: string): string | null {
+    if (!address) return null;
+
+    // Pattern: "street, postal_code Area Region"
+    // We want to extract "Area" which comes after the postal code
+    const match = address.match(/,\s*\d{5}\s+([Α-Ωα-ωίϊΐόάέύϋΰήώ\s]+?)(?:\s+[Α-Ωα-ω]+)?$/);
+
+    if (match && match[1]) {
+        const area = match[1].trim();
+        // If the extracted area contains the region name at the end, remove it
+        // e.g., "Δεμένικα Αχαΐας" → "Δεμένικα"
+        const parts = area.split(/\s+/);
+        if (parts.length > 1) {
+            // Take only the first part (the actual neighborhood)
+            return normalizeGreekLocation(parts[0]);
+        }
+        return normalizeGreekLocation(area);
+    }
+
+    return null;
+}
