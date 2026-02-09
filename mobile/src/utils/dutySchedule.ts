@@ -108,10 +108,17 @@ export function isSlotActive(slot: DutySlot, currentMinutes?: number): boolean {
  * @returns true if any slot is currently active
  */
 export function isOpenNow(duties: DutySlot[]): boolean {
-  if (!duties || duties.length === 0) return false;
+  if (!duties || duties.length === 0) {
+    console.log('[isOpenNow] No duty slots');
+    return false;
+  }
 
   const currentMinutes = getCurrentMinutes();
-  return duties.some((slot) => isSlotActive(slot, currentMinutes));
+  const isOpen = duties.some((slot) => isSlotActive(slot, currentMinutes));
+
+  console.log('[isOpenNow] Slots:', duties.map(s => `${s.start}-${s.end}`).join(', '), '→', isOpen ? 'OPEN' : 'CLOSED');
+
+  return isOpen;
 }
 
 /**
