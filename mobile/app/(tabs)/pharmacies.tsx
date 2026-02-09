@@ -253,7 +253,10 @@ export default function OnDutyScreen() {
             const isRegularHours = (hours >= 8 && hours < 14) || (hours >= 17 && hours < 21);
 
             if (isRegularHours && filter === 'open') {
-              return 'Τα φαρμακεία είναι σε κανονικό ωράριο τώρα και είναι όλα ανοιχτά. Εφημερεύοντα φαρμακεία μπορείτε να αναζητήσετε μετά τις 14:00 ή μετά τις 21:00.';
+              const lang = useAppStore.getState().language;
+              return lang === 'en'
+                ? 'Pharmacies are open during regular hours now. On-duty pharmacies are needed after 14:00 or after 21:00.'
+                : 'Τα φαρμακεία είναι σε κανονικό ωράριο τώρα και είναι όλα ανοιχτά. Εφημερεύοντα φαρμακεία μπορείτε να αναζητήσετε μετά τις 14:00 ή μετά τις 21:00.';
             }
 
             return t('try_different_filter');
