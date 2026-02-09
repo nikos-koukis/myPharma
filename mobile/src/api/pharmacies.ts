@@ -14,7 +14,12 @@ export async function getOnDutyPharmacies(params: {
     city: params.city ? normalizeGreekLocation(params.city) : undefined,
   };
 
+  console.log('[API] getOnDutyPharmacies request:', normalizedParams);
+
   const { data } = await api.get('/api/pharmacies/on-duty', { params: normalizedParams });
+
+  console.log('[API] getOnDutyPharmacies response:', data?.length ?? 0, 'pharmacies');
+
   return data;
 }
 
