@@ -37,7 +37,14 @@ function getGreeceOffset(): number {
 export function getCurrentMinutes(): number {
   const now = new Date();
   const utcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-  const greeceMinutes = (utcMinutes + getGreeceOffset()) % (24 * 60);
+  const greeceOffset = getGreeceOffset();
+  const greeceMinutes = (utcMinutes + greeceOffset) % (24 * 60);
+
+  // Debug: Log the time calculation
+  const hours = Math.floor(greeceMinutes / 60);
+  const mins = greeceMinutes % 60;
+  console.log(`[Time] UTC: ${now.getUTCHours()}:${now.getUTCMinutes()}, Offset: UTC+${greeceOffset / 60}, Greece: ${hours}:${String(mins).padStart(2, '0')}`);
+
   return greeceMinutes;
 }
 
