@@ -246,7 +246,18 @@ export default function OnDutyScreen() {
               filter === 'opening_soon' ? t('no_opening_soon') :
                 t('no_results')
           }
-          subtitle={t('try_different_filter')}
+          subtitle={(() => {
+            // Check if we're in regular pharmacy hours (08:00-14:00 or 17:00-21:00)
+            const now = new Date();
+            const hours = now.getHours();
+            const isRegularHours = (hours >= 8 && hours < 14) || (hours >= 17 && hours < 21);
+
+            if (isRegularHours && filter === 'open') {
+              return 'Τα φαρμακεία είναι σε κανονικό ωράριο τώρα και είναι όλα ανοιχτά. Εφημερεύοντα φαρμακεία μπορείτε να αναζητήσετε μετά τις 14:00 ή μετά τις 21:00.';
+            }
+
+            return t('try_different_filter');
+          })()}
         />
       ) : (
         <FlatList
