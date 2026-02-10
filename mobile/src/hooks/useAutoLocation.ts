@@ -51,7 +51,36 @@ export function useAutoLocation(): AutoLocationState {
           }
         }
 
-        // Find nearest pharmacy to determine the city/prefecture
+        // Use Reverse Geocoding for reliable city/prefecture detection
+        const geocode = await Location.reverseGeocodeAsync({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        });
+
+        if (geocode.length > 0 && isMounted) {
+          const address = geocode[0];
+          const region = address.region || ''; // Usually holds the Prefecture (e.g., "Achaia")
+          const city = address.city || address.district || address.subregion || '';
+
+          const normalizedRegion = normalizeGreekLocation(region);
+          const normalizedCity = normalizeGreekLocation(city);
+
+          console.log(`[autoLocation] Geocoded area: ${normalizedRegion}, ${normalizedCity}`);
+
+          // If we got a valid region, use it
+          if (normalizedRegion) {
+            setUserLocation({
+              prefecture: normalizedRegion,
+              city: normalizedCity,
+              lat: coords.latitude,
+              lng: coords.longitude,
+            });
+            setDetecting(false);
+            return;
+          }
+        }
+
+        // --- FALLBACK: Find nearest pharmacy ---
         const today = new Date().toISOString().split('T')[0];
         const nearby = await getNearbyPharmacies({
           lat: coords.latitude,
@@ -66,7 +95,7 @@ export function useAutoLocation(): AutoLocationState {
           const normalizedRegion = normalizeGreekLocation(closest.region);
           const normalizedCity = specificArea || normalizeGreekLocation(closest.city);
 
-          console.log(`[autoLocation] Detected new area: ${normalizedRegion}, ${normalizedCity}`);
+          console.log(`[autoLocation] Fallback Detected area: ${normalizedRegion}, ${normalizedCity}`);
 
           setUserLocation({
             prefecture: normalizedRegion,
