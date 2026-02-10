@@ -104,11 +104,9 @@ async function executeCurl(url: string, useProxy: boolean): Promise<FetchResult>
  */
 export async function fetchPage(url: string, retries = 3): Promise<FetchResult> {
   let lastError: Error | null = null;
-  const hasProxy = !!config.scraper.proxyUrl;
 
   for (let attempt = 1; attempt <= retries; attempt++) {
-    // Use proxy on retry if available
-    const useProxy = attempt > 1 && hasProxy;
+    const useProxy = false;
 
     try {
       // Extract city slug from URL for cleaner logging
