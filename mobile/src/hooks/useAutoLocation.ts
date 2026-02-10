@@ -68,27 +68,44 @@ export function useAutoLocation(): AutoLocationState {
           const rawRegion = (addr.region || addr.subregion || '').trim();
           const rawCity = (addr.city || addr.district || '').trim();
 
-          // Mapping for common English/Greek names to Backend Names
+          // Comprehensive mapping for common English/Greek names to Backend Names (Prefectures)
           const regionMap: Record<string, string> = {
+            // Achaia / Patra
             'achaia': 'Αχαΐας',
             'achaea': 'Αχαΐας',
-            'western greece': 'Αχαΐας', // Essential for Patra area in Simulator
+            'western greece': 'Αχαΐας',
             'dytiki ellada': 'Αχαΐας',
+            'patra': 'Αχαΐας',
+            'patras': 'Αχαΐας',
+            'πατρα': 'Αχαΐας',
+
+            // Attica / Athens
             'attica': 'Αττικής',
             'attiki': 'Αττικής',
+            'athens': 'Αττικής',
+            'athina': 'Αττικής',
+            'kentrikos tomeas athinon': 'Αττικής',
+
+            // Thessaloniki
             'thessaloniki': 'Θεσσαλονίκης',
             'central macedonia': 'Θεσσαλονίκης',
+            'kentriki makedonia': 'Θεσσαλονίκης',
+
+            // Chalkidiki
             'chalkidiki': 'Χαλκιδικής',
             'halkidiki': 'Χαλκιδικής',
           };
 
           const rawRegionLower = rawRegion.toLowerCase();
-          let finalRegion = regionMap[rawRegionLower] || rawRegion;
+          const rawCityLower = rawCity.toLowerCase();
+
+          // Try to map from region first, then city
+          let finalRegion = regionMap[rawRegionLower] || regionMap[rawCityLower] || rawRegion;
 
           finalRegion = normalizeGreekLocation(finalRegion);
           const finalCity = normalizeGreekLocation(rawCity);
 
-          console.log(`[autoLocation] Geocode: "${rawRegion}" -> "${finalRegion}" (${finalCity})`);
+          console.log(`[autoLocation] Geocode: Region="${rawRegion}", City="${rawCity}" -> Final="${finalRegion}"`);
 
           // If we mapped to a known good region, update and stop
           if (finalRegion && finalRegion.length > 2) {
