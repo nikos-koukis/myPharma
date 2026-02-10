@@ -1,6 +1,6 @@
 import { api } from './client';
 import type { Pharmacy, NearbyPharmacy, RegionCity } from '../types';
-import { normalizeGreekLocation } from '../utils/greekText';
+import { normalizeGreekLocation, removeGreekAccents } from '../utils/greekText';
 
 export async function getOnDutyPharmacies(params: {
   region?: string;
@@ -8,9 +8,10 @@ export async function getOnDutyPharmacies(params: {
   date?: string;
 }): Promise<Pharmacy[]> {
   // Normalize region and city to ensure consistent casing
+  // CRITICAL: We also remove accents for the region to avoid encoding issues with chars like 'ΐ'
   const normalizedParams = {
     ...params,
-    region: params.region ? normalizeGreekLocation(params.region) : undefined,
+    region: params.region ? removeGreekAccents(params.region) : undefined,
     city: params.city ? normalizeGreekLocation(params.city) : undefined,
   };
 
@@ -45,7 +46,7 @@ export async function getPrefectures(): Promise<string[]> {
 
 export async function getRegions(prefecture?: string): Promise<RegionCity[]> {
   const { data } = await api.get('/api/regions', {
-    params: prefecture ? { prefecture } : undefined,
+    params: prefecture ? { prefecture: removeGreekAccents(prefecture) } : undefined,
   });
   return data;
 }

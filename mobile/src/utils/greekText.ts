@@ -33,6 +33,26 @@ export function normalizeGreekLocation(location: string): string {
 }
 
 /**
+ * Removes accents and special characters from Greek text.
+ * Useful for normalizing strings before sending to API if the backend has encoding issues.
+ * 
+ * Examples:
+ * - "Αχαΐας" → "ΑΧΑΙΑΣ"
+ * - "Θεσσαλονίκης" → "ΘΕΣΣΑΛΟΝΙΚΗΣ"
+ */
+export function removeGreekAccents(str: string): string {
+    if (!str) return str;
+
+    const map: Record<string, string> = {
+        'Ά': 'Α', 'Έ': 'Ε', 'Ή': 'Η', 'Ί': 'Ι', 'Ό': 'Ο', 'Ύ': 'Υ', 'Ώ': 'Ω',
+        'ά': 'α', 'έ': 'ε', 'ή': 'η', 'ί': 'ι', 'ό': 'ο', 'ύ': 'υ', 'ώ': 'ω',
+        'ΐ': 'ι', 'ϊ': 'ι', 'ϋ': 'υ', 'ΰ': 'υ', 'Ϊ': 'Ι', 'Ϋ': 'Υ'
+    };
+
+    return str.split('').map(char => map[char] || char).join('').toUpperCase();
+}
+
+/**
  * Extracts specific area/neighborhood from a full address.
  * 
  * Examples:
