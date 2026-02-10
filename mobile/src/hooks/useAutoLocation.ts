@@ -13,13 +13,16 @@ export function useAutoLocation(): AutoLocationState {
   const [detecting, setDetecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const locationDetected = useAppStore((s) => s.locationDetected);
+  const userLocation = useAppStore((s) => s.userLocation);
   const setUserLocation = useAppStore((s) => s.setUserLocation);
   const setLocationDetected = useAppStore((s) => s.setLocationDetected);
 
   useEffect(() => {
-    // Skip if location already detected
-    if (locationDetected) return;
+    // We run detection if:
+    // 1. Location hasn't been detected yet
+    // 2. OR we want to verify the current area (pro-active)
+    // We'll run it once on mount and then stop.
+    let isMounted = true;
 
     async function detectLocation() {
       setDetecting(true);
@@ -63,16 +66,6 @@ export function useAutoLocation(): AutoLocationState {
           return;
         }
 
-        // --- Simulator Override Logic ---
-        const { Platform } = require('react-native');
-        const isSimulator = Platform.OS === 'ios' &&
-          coords.latitude > 37.7 && coords.latitude < 37.9 &&
-          coords.longitude > -122.5 && coords.longitude < -122.3;
-
-        if (isSimulator) {
-          console.log('[autoLocation] Detected simulator (SF), overriding to Thessaloniki...');
-          coords = { latitude: 40.6212, longitude: 22.9691 };
-        }
         // --------------------------------
 
         console.log('[autoLocation] Got coordinates:', coords.latitude, coords.longitude);
@@ -104,24 +97,35 @@ export function useAutoLocation(): AutoLocationState {
         const normalizedCity = specificArea || normalizeGreekLocation(closest.city); // Use specific area if available
         console.log('[autoLocation] Normalized location:', normalizedRegion, normalizedCity, specificArea ? '(specific area)' : '(general city)');
 
-        // Save the user's location
-        setUserLocation({
-          prefecture: normalizedRegion,
-          city: normalizedCity,
-          lat: coords.latitude,
-          lng: coords.longitude,
-        });
+        // Only update store if the region changed or we don't have a location
+        if (isMounted && (!userLocation || userLocation.prefecture !== normalizedRegion)) {
+          console.log(`[autoLocation] Updating store: ${userLocation?.prefecture || 'NONE'} -> ${normalizedRegion}`);
+          setUserLocation({
+            prefecture: normalizedRegion,
+            city: normalizedCity,
+            lat: coords.latitude,
+            lng: coords.longitude,
+          });
+        } else {
+          console.log('[autoLocation] Location already correct, skipping store update');
+        }
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Unknown error';
-        console.warn('[autoLocation] Error:', msg);
-        setError(msg);
+        if (isMounted) {
+          const msg = e instanceof Error ? e.message : 'Unknown error';
+          console.warn('[autoLocation] Error:', msg);
+          setError(msg);
+        }
       } finally {
-        setDetecting(false);
+        if (isMounted) setDetecting(false);
       }
     }
 
     detectLocation();
-  }, [locationDetected, setUserLocation, setLocationDetected]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [setUserLocation, setLocationDetected, userLocation]);
 
   return { detecting, error };
 }

@@ -1,23 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Platform } from 'react-native';
 import * as Location from 'expo-location';
-import Constants from 'expo-constants';
-
-// Default location for simulator/development: Triandria, Thessaloniki
-const SIMULATOR_DEFAULT_LOCATION = {
-  lat: 40.6212,
-  lng: 22.9691,
-};
-
-// Detect if running in iOS simulator (San Francisco area)
-function isSimulatorLocation(lat: number, lng: number): boolean {
-  // iOS Simulator default location is around San Francisco (37.78, -122.40)
-  return (
-    Platform.OS === 'ios' &&
-    lat > 37.7 && lat < 37.9 &&
-    lng > -122.5 && lng < -122.3
-  );
-}
 
 interface LocationState {
   lat: number | null;
@@ -34,15 +16,8 @@ export function useLocation(): LocationState {
   const [error, setError] = useState<string | null>(null);
 
   const setLocationWithSimulatorCheck = useCallback((latitude: number, longitude: number) => {
-    // If we detect the simulator's fake SF location, use Athens instead
-    if (isSimulatorLocation(latitude, longitude)) {
-      console.log('[location] Detected simulator location (SF), using Athens, Greece instead');
-      setLat(SIMULATOR_DEFAULT_LOCATION.lat);
-      setLng(SIMULATOR_DEFAULT_LOCATION.lng);
-    } else {
-      setLat(latitude);
-      setLng(longitude);
-    }
+    setLat(latitude);
+    setLng(longitude);
   }, []);
 
   const fetchLocation = useCallback(async () => {
