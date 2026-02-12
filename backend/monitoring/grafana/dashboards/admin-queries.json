@@ -54,7 +54,7 @@
       "targets": [
         {
           "datasource": { "type": "postgres", "uid": "postgresql" },
-          "rawSql": "SELECT id, name, address, phone, city, region, lat, lng,\n  CASE WHEN lat IS NOT NULL THEN 'https://www.google.com/maps?q=' || lat || ',' || lng END AS \"Google Maps\",\n  created_at, updated_at\nFROM pharmacies\nWHERE phone LIKE '%${phone:raw}%'\nORDER BY name\nLIMIT 100",
+          "rawSql": "SELECT p.id, p.name, p.address, p.phone, p.city, p.region, p.lat, p.lng,\n  CASE WHEN p.lat IS NOT NULL THEN 'https://www.google.com/maps?q=' || p.lat || ',' || p.lng END AS \"Google Maps\",\n  pd.duty_date, pd.duties,\n  p.created_at, p.updated_at\nFROM pharmacies p\nLEFT JOIN pharmacy_duties pd ON pd.pharmacy_id = p.id AND pd.duty_date >= CURRENT_DATE\nWHERE p.phone LIKE '%${phone:raw}%'\nORDER BY p.name, pd.duty_date\nLIMIT 100",
           "format": "table",
           "rawQuery": true,
           "refId": "A"
@@ -99,7 +99,7 @@
       "targets": [
         {
           "datasource": { "type": "postgres", "uid": "postgresql" },
-          "rawSql": "SELECT id, name, address, phone, city, region, lat, lng,\n  CASE WHEN lat IS NOT NULL THEN 'https://www.google.com/maps?q=' || lat || ',' || lng END AS \"Google Maps\",\n  created_at, updated_at\nFROM pharmacies\nWHERE LOWER(name) LIKE LOWER('%${pharmacy_name:raw}%')\nORDER BY name\nLIMIT 100",
+          "rawSql": "SELECT p.id, p.name, p.address, p.phone, p.city, p.region, p.lat, p.lng,\n  CASE WHEN p.lat IS NOT NULL THEN 'https://www.google.com/maps?q=' || p.lat || ',' || p.lng END AS \"Google Maps\",\n  pd.duty_date, pd.duties,\n  p.created_at, p.updated_at\nFROM pharmacies p\nLEFT JOIN pharmacy_duties pd ON pd.pharmacy_id = p.id AND pd.duty_date >= CURRENT_DATE\nWHERE LOWER(p.name) LIKE LOWER('%${pharmacy_name:raw}%')\nORDER BY p.name, pd.duty_date\nLIMIT 100",
           "format": "table",
           "rawQuery": true,
           "refId": "A"
@@ -138,7 +138,7 @@
       "targets": [
         {
           "datasource": { "type": "postgres", "uid": "postgresql" },
-          "rawSql": "SELECT id, name, address, phone, city, region, lat, lng, created_at\nFROM pharmacies\nWHERE LOWER(address) LIKE LOWER('%${address:raw}%')\nORDER BY address\nLIMIT 100",
+          "rawSql": "SELECT p.id, p.name, p.address, p.phone, p.city, p.region, p.lat, p.lng,\n  pd.duty_date, pd.duties, p.created_at\nFROM pharmacies p\nLEFT JOIN pharmacy_duties pd ON pd.pharmacy_id = p.id AND pd.duty_date >= CURRENT_DATE\nWHERE LOWER(p.address) LIKE LOWER('%${address:raw}%')\nORDER BY p.address, pd.duty_date\nLIMIT 100",
           "format": "table",
           "rawQuery": true,
           "refId": "A"
@@ -172,7 +172,7 @@
       "targets": [
         {
           "datasource": { "type": "postgres", "uid": "postgresql" },
-          "rawSql": "SELECT id, name, address, phone, city, region, lat, lng\nFROM pharmacies\nWHERE LOWER(city) LIKE LOWER('%${city_search:raw}%')\nORDER BY name\nLIMIT 200",
+          "rawSql": "SELECT p.id, p.name, p.address, p.phone, p.city, p.region, p.lat, p.lng,\n  pd.duty_date, pd.duties\nFROM pharmacies p\nLEFT JOIN pharmacy_duties pd ON pd.pharmacy_id = p.id AND pd.duty_date >= CURRENT_DATE\nWHERE LOWER(p.city) LIKE LOWER('%${city_search:raw}%')\nORDER BY p.name, pd.duty_date\nLIMIT 200",
           "format": "table",
           "rawQuery": true,
           "refId": "A"
