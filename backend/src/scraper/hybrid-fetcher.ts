@@ -24,6 +24,9 @@ const DOCKER_IMAGE = 'lwthiker/curl-impersonate:0.6-chrome';
 const CURL_BIN = 'curl_chrome116';
 const IS_LINUX = platform() === 'linux';
 
+// VPN interface - set VPN_INTERFACE env var (e.g., 'tun0') to route through VPN
+const VPN_INTERFACE: string | null = process.env.VPN_INTERFACE || null;
+
 /**
  * Build curl-impersonate command
  * Uses native binary on Linux, Docker on macOS
@@ -39,6 +42,11 @@ function buildCommand(url: string, useProxy: boolean): string {
     '-w "\\n%{http_code}"',  // Output status code at end
     '-H "accept-language: el-GR,el;q=0.9,en;q=0.8"',
   ];
+
+  // Route through VPN interface (Linux only, set VPN_INTERFACE=tun0)
+  if (VPN_INTERFACE) {
+    curlArgs.push(`--interface ${VPN_INTERFACE}`);
+  }
 
   if (useProxy && proxyUrl) {
     curlArgs.push('-k');  // Skip SSL verification (required for Bright Data MITM proxy)
