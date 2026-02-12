@@ -9,6 +9,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { platform } from 'os';
 import { config } from '../config';
+import { scraperHttpStatusTotal } from '../metrics';
 
 const execAsync = promisify(exec);
 
@@ -122,6 +123,9 @@ export async function fetchPage(url: string, retries = 3): Promise<FetchResult> 
       console.log(`[fetch] ${slug}${attempt > 1 ? ` (retry ${attempt})` : ''}`);
 
       const result = await executeCurl(url, useProxy);
+
+      // Track HTTP status code in metrics
+      scraperHttpStatusTotal.inc({ status_code: String(result.status) });
 
       // Check for blocked
       if (result.status === 403 || result.status === 429) {

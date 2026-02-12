@@ -26,6 +26,7 @@ export async function runScraper(): Promise<void> {
   let saved = 0;
   let successCities = 0;
   let failedCities = 0;
+  const rateLimitedCities: CityConfig[] = [];
 
   try {
     // Parallel scraping in batches
@@ -42,12 +43,34 @@ export async function runScraper(): Promise<void> {
         if (result.status === 'fulfilled') {
           totalScraped += result.value.pharmaciesFound;
           saved += result.value.dutiesSaved;
-          if (result.value.success) successCities++;
-          else failedCities++;
+          if (result.value.success) {
+            successCities++;
+          } else if (result.value.rateLimited && result.value.city) {
+            rateLimitedCities.push(result.value.city);
+          } else {
+            failedCities++;
+          }
         } else {
           failedCities++;
           console.error(`[scraper] Error:`, result.reason);
         }
+      }
+    }
+
+    // Retry rate-limited cities (429/403) with longer delays
+    if (rateLimitedCities.length > 0) {
+      console.log(`[scraper] Retrying ${rateLimitedCities.length} rate-limited cities...`);
+      await sleep(30000); // Wait 30s before retrying
+
+      for (const city of rateLimitedCities) {
+        console.log(`[scraper] Retry: ${city.name}`);
+        const result = await scrapeCityTracked(city, scrapeRun.id);
+        totalScraped += result.pharmaciesFound;
+        saved += result.dutiesSaved;
+        if (result.success) successCities++;
+        else failedCities++;
+
+        await sleep(10000); // 10s between retries
       }
     }
 
@@ -92,6 +115,8 @@ interface CityScrapResult {
   pharmaciesFound: number;
   dutiesSaved: number;
   success: boolean;
+  rateLimited?: boolean;
+  city?: CityConfig;
 }
 
 /**
@@ -122,7 +147,7 @@ async function scrapeCityTracked(city: CityConfig, scrapeRunId: string): Promise
       lastUsedProxy = usedProxy;
 
       // Rate limit: wait 3s between requests
-      await sleep(3000);
+      await sleep(4000);
 
 
       // Parse with the specific date we're scraping
@@ -157,21 +182,24 @@ async function scrapeCityTracked(city: CityConfig, scrapeRunId: string): Promise
 
     return { pharmaciesFound: totalPharmacies, dutiesSaved: totalDuties, success: true };
   } catch (err) {
-    console.error(`[scraper] Failed to scrape ${city.name}:`, err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const isRateLimited = errMsg.includes('429') || errMsg.includes('403');
+
+    console.error(`[scraper] Failed to scrape ${city.name}:`, errMsg);
 
     await prisma.scrapeCityResult.create({
       data: {
         scrapeRunId,
         city: city.name,
         prefecture: city.prefecture,
-        status: 'failed',
+        status: isRateLimited ? 'rate_limited' : 'failed',
         url: urls.join(' | ') || getCityUrl(city, todayDate),
         durationMs: Date.now() - cityStart,
-        errorMessage: err instanceof Error ? err.message : String(err),
+        errorMessage: errMsg,
       },
     });
 
-    return { pharmaciesFound: 0, dutiesSaved: 0, success: false };
+    return { pharmaciesFound: 0, dutiesSaved: 0, success: false, rateLimited: isRateLimited, city };
   }
 }
 
