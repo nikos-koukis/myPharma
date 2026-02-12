@@ -7,17 +7,16 @@ async function main() {
   // Start the API server
   await startServer();
 
-  // Cron disabled temporarily
-  // cron.schedule(config.scraper.pharmacyCron, async () => {
-  //   console.log('[cron] Running pharmacy scrape...');
-  //   try {
-  //     await runScraper();
-  //   } catch (err) {
-  //     console.error('[cron] Pharmacy scrape failed:', err);
-  //   }
-  // });
+  cron.schedule(config.scraper.pharmacyCron, async () => {
+    console.log('[cron] Running pharmacy scrape...');
+    try {
+      await runScraper();
+    } catch (err) {
+      console.error('[cron] Pharmacy scrape failed:', err);
+    }
+  });
 
-  console.log(`[cron] Pharmacy scrape DISABLED (was: ${config.scraper.pharmacyCron})`);
+  console.log(`[cron] Pharmacy scrape scheduled: ${config.scraper.pharmacyCron}`);
 }
 
 main().catch((err) => {
