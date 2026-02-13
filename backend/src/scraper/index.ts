@@ -28,11 +28,23 @@ export async function runScraper(): Promise<void> {
     return;
   }
 
-  // Filter by SCRAPE_PREFECTURES env var if set
+  // Filter by SCRAPE_PREFECTURES env var if set (preserves env var order)
   const filter = getScrapePrefectureFilter();
-  const prefecturesToScrape = filter
-    ? allPrefectures.filter(p => filter.some(f => p.name.toUpperCase().includes(f) || p.slug.toUpperCase().includes(f)))
-    : allPrefectures;
+  let prefecturesToScrape: PrefectureConfig[];
+  if (filter) {
+    // Build list in the order specified in SCRAPE_PREFECTURES
+    prefecturesToScrape = [];
+    for (const f of filter) {
+      const match = allPrefectures.find(p =>
+        p.name.toUpperCase().includes(f) || p.slug.toUpperCase().includes(f)
+      );
+      if (match && !prefecturesToScrape.includes(match)) {
+        prefecturesToScrape.push(match);
+      }
+    }
+  } else {
+    prefecturesToScrape = allPrefectures;
+  }
 
   if (prefecturesToScrape.length === 0) {
     console.log('[scraper] No prefectures to scrape (check SCRAPE_PREFECTURES filter)');
@@ -41,20 +53,32 @@ export async function runScraper(): Promise<void> {
 
   console.log(`[scraper] Will scrape ${prefecturesToScrape.length} prefecture(s)${filter ? ' (filtered)' : ' (all Greece)'}...`);
 
-  // Discover cities from each prefecture
+  // Discover cities from each prefecture (parallel)
   const cities: CityConfig[] = [];
-  for (const prefecture of prefecturesToScrape) {
-    try {
-      const prefectureCities = await discoverCities(prefecture);
-      cities.push(...prefectureCities);
-      console.log(`[scraper] Discovered ${prefectureCities.length} cities for ${prefecture.name}`);
+  console.log(`[scraper] Discovering cities from ${prefecturesToScrape.length} prefectures (concurrency: ${config.scraper.concurrency})...`);
 
-      // Rate limit between prefecture discoveries
-      if (prefecturesToScrape.indexOf(prefecture) < prefecturesToScrape.length - 1) {
-        await sleep(5000);
+  for (let i = 0; i < prefecturesToScrape.length; i += config.scraper.concurrency) {
+    const batch = prefecturesToScrape.slice(i, i + config.scraper.concurrency);
+
+    const results = await Promise.allSettled(
+      batch.map(async (prefecture) => {
+        const prefectureCities = await discoverCities(prefecture);
+        console.log(`[scraper] Discovered ${prefectureCities.length} cities for ${prefecture.name}`);
+        return prefectureCities;
+      })
+    );
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        cities.push(...result.value);
+      } else {
+        console.error(`[scraper] Failed to discover cities:`, result.reason);
       }
-    } catch (err) {
-      console.error(`[scraper] Failed to discover cities for ${prefecture.name}:`, err);
+    }
+
+    // Rate limit between batches
+    if (i + config.scraper.concurrency < prefecturesToScrape.length) {
+      await sleep(3000);
     }
   }
 
