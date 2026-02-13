@@ -53,15 +53,13 @@ export async function runScraper(): Promise<void> {
 
   console.log(`[scraper] Will scrape ${prefecturesToScrape.length} prefecture(s)${filter ? ' (filtered)' : ' (all Greece)'}...`);
 
-  // Discover cities from each prefecture (sequential)
-  const cities: CityConfig[] = [];
+  // Count total cities first for the scrape run record
+  const allCities: CityConfig[] = [];
   for (const prefecture of prefecturesToScrape) {
     try {
       const prefectureCities = await discoverCities(prefecture);
-      cities.push(...prefectureCities);
+      allCities.push(...prefectureCities);
       console.log(`[scraper] Discovered ${prefectureCities.length} cities for ${prefecture.name}`);
-
-      // Rate limit between prefecture discoveries
       if (prefecturesToScrape.indexOf(prefecture) < prefecturesToScrape.length - 1) {
         await sleep(5000);
       }
@@ -70,16 +68,14 @@ export async function runScraper(): Promise<void> {
     }
   }
 
-  console.log(`[scraper] Will scrape ${cities.length} discovered cities`);
-
-  if (cities.length === 0) {
+  if (allCities.length === 0) {
     console.log('[scraper] No cities to scrape');
     return;
   }
 
   const scrapeRun = await prisma.scrapeRun.create({
     data: {
-      totalCities: cities.length,
+      totalCities: allCities.length,
       status: 'running',
     },
   });
@@ -92,32 +88,45 @@ export async function runScraper(): Promise<void> {
   const rateLimitedCities: CityConfig[] = [];
 
   try {
-    // Parallel scraping in batches
-    for (let i = 0; i < cities.length; i += config.scraper.concurrency) {
-      const batch = cities.slice(i, i + config.scraper.concurrency);
-      const batchEnd = Math.min(i + config.scraper.concurrency, cities.length);
-      console.log(`[scraper] [${i + 1}-${batchEnd}/${cities.length}]`);
+    // Process each prefecture: scrape cities, then clear cache for that region
+    for (const prefecture of prefecturesToScrape) {
+      const prefectureCities = allCities.filter(c => c.prefecture === prefecture.name);
+      if (prefectureCities.length === 0) continue;
 
-      const results = await Promise.allSettled(
-        batch.map((city) => scrapeCityTracked(city, scrapeRun.id))
-      );
+      console.log(`[scraper] Scraping ${prefectureCities.length} cities for ${prefecture.name}...`);
 
-      for (const result of results) {
-        if (result.status === 'fulfilled') {
-          totalScraped += result.value.pharmaciesFound;
-          saved += result.value.dutiesSaved;
-          if (result.value.success) {
-            successCities++;
-          } else if (result.value.rateLimited && result.value.city) {
-            rateLimitedCities.push(result.value.city);
+      // Scrape cities in batches
+      for (let i = 0; i < prefectureCities.length; i += config.scraper.concurrency) {
+        const batch = prefectureCities.slice(i, i + config.scraper.concurrency);
+        const batchEnd = Math.min(i + config.scraper.concurrency, prefectureCities.length);
+        console.log(`[scraper] [${prefecture.name}] [${i + 1}-${batchEnd}/${prefectureCities.length}]`);
+
+        const results = await Promise.allSettled(
+          batch.map((city) => scrapeCityTracked(city, scrapeRun.id))
+        );
+
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            totalScraped += result.value.pharmaciesFound;
+            saved += result.value.dutiesSaved;
+            if (result.value.success) {
+              successCities++;
+            } else if (result.value.rateLimited && result.value.city) {
+              rateLimitedCities.push(result.value.city);
+            } else {
+              failedCities++;
+            }
           } else {
             failedCities++;
+            console.error(`[scraper] Error:`, result.reason);
           }
-        } else {
-          failedCities++;
-          console.error(`[scraper] Error:`, result.reason);
         }
       }
+
+      // Clear cache for this prefecture immediately after scraping
+      await invalidatePattern(`pharmacies:on-duty:${prefecture.name}:*`);
+      await invalidatePattern(`pharmacies:nearby:*`); // Nearby queries may include this region
+      console.log(`[scraper] Cache cleared for ${prefecture.name}`);
     }
 
     // Retry rate-limited cities (429/403) with longer delays
@@ -151,8 +160,9 @@ export async function runScraper(): Promise<void> {
     });
 
     console.log(`[scraper] Scraped ${totalScraped}, saved ${saved} pharmacies`);
+    // Full cache clear at the end to catch any edge cases
     await invalidatePattern('pharmacies:*');
-    console.log('[scraper] Cache invalidated');
+    console.log('[scraper] Full cache invalidated');
     await closeBrowser();
     console.log('[scraper] Done');
   } catch (err) {
