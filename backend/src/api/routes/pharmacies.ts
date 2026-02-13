@@ -31,8 +31,13 @@ export async function pharmacyRoutes(app: FastifyInstance) {
       return cached;
     }
 
+    // For overnight shifts, include both the requested date and next day's early morning
+    const requestedDate = new Date(dutyDate);
+    const nextDate = new Date(dutyDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+
     const where: Record<string, unknown> = {
-      duties: { some: { dutyDate: new Date(dutyDate) } },
+      duties: { some: { dutyDate: requestedDate } },
     };
     if (region) where.region = { contains: region, mode: 'insensitive' };
     if (city) where.city = city;
@@ -42,8 +47,11 @@ export async function pharmacyRoutes(app: FastifyInstance) {
       where,
       include: {
         duties: {
-          where: { dutyDate: new Date(dutyDate) },
+          where: {
+            dutyDate: { in: [requestedDate, nextDate] },
+          },
           select: { duties: true, dutyDate: true },
+          orderBy: { dutyDate: 'asc' },
         },
       },
       orderBy: { name: 'asc' },
@@ -194,10 +202,11 @@ export async function pharmacyRoutes(app: FastifyInstance) {
       include: {
         duties: {
           orderBy: { dutyDate: 'desc' },
-          take: 7, // Last 7 days of duties
         },
       },
     });
+
+    console.log(`[api] Duties found: ${pharmacy?.duties?.length ?? 0}`);
 
     if (!pharmacy) {
       reply.status(404);
