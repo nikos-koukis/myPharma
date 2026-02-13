@@ -53,32 +53,20 @@ export async function runScraper(): Promise<void> {
 
   console.log(`[scraper] Will scrape ${prefecturesToScrape.length} prefecture(s)${filter ? ' (filtered)' : ' (all Greece)'}...`);
 
-  // Discover cities from each prefecture (parallel)
+  // Discover cities from each prefecture (sequential)
   const cities: CityConfig[] = [];
-  console.log(`[scraper] Discovering cities from ${prefecturesToScrape.length} prefectures (concurrency: ${config.scraper.concurrency})...`);
+  for (const prefecture of prefecturesToScrape) {
+    try {
+      const prefectureCities = await discoverCities(prefecture);
+      cities.push(...prefectureCities);
+      console.log(`[scraper] Discovered ${prefectureCities.length} cities for ${prefecture.name}`);
 
-  for (let i = 0; i < prefecturesToScrape.length; i += config.scraper.concurrency) {
-    const batch = prefecturesToScrape.slice(i, i + config.scraper.concurrency);
-
-    const results = await Promise.allSettled(
-      batch.map(async (prefecture) => {
-        const prefectureCities = await discoverCities(prefecture);
-        console.log(`[scraper] Discovered ${prefectureCities.length} cities for ${prefecture.name}`);
-        return prefectureCities;
-      })
-    );
-
-    for (const result of results) {
-      if (result.status === 'fulfilled') {
-        cities.push(...result.value);
-      } else {
-        console.error(`[scraper] Failed to discover cities:`, result.reason);
+      // Rate limit between prefecture discoveries
+      if (prefecturesToScrape.indexOf(prefecture) < prefecturesToScrape.length - 1) {
+        await sleep(5000);
       }
-    }
-
-    // Rate limit between batches
-    if (i + config.scraper.concurrency < prefecturesToScrape.length) {
-      await sleep(3000);
+    } catch (err) {
+      console.error(`[scraper] Failed to discover cities for ${prefecture.name}:`, err);
     }
   }
 

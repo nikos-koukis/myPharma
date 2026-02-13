@@ -35,7 +35,7 @@ export const config = {
   },
 
   scraper: {
-    pharmacyCron: '0 9 * * *',
+    pharmacyCron: '0,5 9 * * *',  // 09:00 and 09:05
     //pharmacyCron: '0 */4 * * *',             // Every 4 hours
     concurrency: 5,
     timeout: 30000,
