@@ -285,10 +285,19 @@ export async function fetchPage(url: string, retries = 3): Promise<FetchResult> 
       console.error(`[fetch] Failed ${slug}: ${lastError.message}`);
 
       if (attempt < retries) {
-        // Randomized exponential backoff (adds 0-50% jitter)
-        const baseDelay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-        const jitter = baseDelay * Math.random() * 0.5;
-        await sleep(baseDelay + jitter);
+        // Longer backoff for rate limits (429/403)
+        const isRateLimited = lastError.message.includes('429') || lastError.message.includes('403');
+        if (isRateLimited) {
+          // 30-60s delay for rate limits
+          const delay = 30000 + Math.random() * 30000;
+          console.log(`[fetch] Rate limited, waiting ${Math.round(delay / 1000)}s...`);
+          await sleep(delay);
+        } else {
+          // Normal exponential backoff (adds 0-50% jitter)
+          const baseDelay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+          const jitter = baseDelay * Math.random() * 0.5;
+          await sleep(baseDelay + jitter);
+        }
       }
     }
   }
