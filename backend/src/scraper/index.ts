@@ -219,8 +219,8 @@ async function scrapeCityTracked(city: CityConfig, scrapeRunId: string): Promise
       lastHttpStatus = httpStatus;
       lastUsedProxy = usedProxy;
 
-      // Rate limit: randomized 2-4s between requests (VPN provides different IP)
-      await sleep(2000 + Math.random() * 2000);
+      // Rate limit: randomized 4-7s between requests
+      await sleep(4000 + Math.random() * 3000);
 
 
       // Parse with the specific date we're scraping
