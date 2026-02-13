@@ -225,7 +225,12 @@ async function savePharmacy(data: PharmacyData): Promise<number> {
   }
 }
 
-main().catch((err) => {
-  console.error('Error:', err);
-  process.exit(1);
-});
+main()
+  .catch((err) => {
+    console.error('Error:', err);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+    process.exit(0);
+  });
