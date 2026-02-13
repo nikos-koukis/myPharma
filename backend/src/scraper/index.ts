@@ -129,10 +129,10 @@ export async function runScraper(): Promise<void> {
       console.log(`[scraper] Cache cleared for ${prefecture.name}`);
     }
 
-    // Retry rate-limited cities (429/403) with longer delays
+    // Retry failed cities at the end with delays
     if (rateLimitedCities.length > 0) {
-      console.log(`[scraper] Retrying ${rateLimitedCities.length} rate-limited cities...`);
-      await sleep(30000); // Wait 30s before retrying
+      console.log(`[scraper] Retrying ${rateLimitedCities.length} failed cities...`);
+      await sleep(15000); // Wait 15s before retrying
 
       for (const city of rateLimitedCities) {
         console.log(`[scraper] Retry: ${city.name}`);
@@ -142,7 +142,7 @@ export async function runScraper(): Promise<void> {
         if (result.success) successCities++;
         else failedCities++;
 
-        await sleep(10000); // 10s between retries
+        await sleep(5000); // 5s between retries
       }
     }
 
@@ -215,12 +215,12 @@ async function scrapeCityTracked(city: CityConfig, scrapeRunId: string): Promise
       const url = getCityUrl(city, date);
       urls.push(url);
 
-      const { html, status: httpStatus, usedProxy } = await fetchPage(url, config.scraper.retries);
+      const { html, status: httpStatus, usedProxy } = await fetchPage(url);
       lastHttpStatus = httpStatus;
       lastUsedProxy = usedProxy;
 
-      // Rate limit: randomized 5-8s between requests to avoid detection
-      await sleep(5000 + Math.random() * 3000);
+      // Rate limit: randomized 2-4s between requests (VPN provides different IP)
+      await sleep(2000 + Math.random() * 2000);
 
 
       // Parse with the specific date we're scraping

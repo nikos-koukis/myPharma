@@ -239,11 +239,9 @@ async function executeCurl(url: string, useProxy: boolean, useCookies: boolean):
 }
 
 /**
- * Fetch a page using curl-impersonate
+ * Fetch a page using curl-impersonate (no retries - fail fast)
  */
-export async function fetchPage(url: string, retries = 3): Promise<FetchResult> {
-  let lastError: Error | null = null;
-
+export async function fetchPage(url: string): Promise<FetchResult> {
   // Extract city slug from URL for cleaner logging
   const slug = url.match(/farmakeia\/([^/?]+)/)?.[1] || url;
 
@@ -252,57 +250,32 @@ export async function fetchPage(url: string, retries = 3): Promise<FetchResult> 
     refreshCookies();
   }
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    const useProxy = false;
-    // Use cookies if we have them (after first successful request)
-    const useCookies = cookieJar.cookies.size > 0;
+  const useProxy = false;
+  // Use cookies if we have them (after first successful request)
+  const useCookies = cookieJar.cookies.size > 0;
 
-    try {
-      console.log(`[fetch] ${slug}${attempt > 1 ? ` (retry ${attempt})` : ''}${useCookies ? ' [cookies]' : ''}`);
+  console.log(`[fetch] ${slug}${useCookies ? ' [cookies]' : ''}`);
 
-      const result = await executeCurl(url, useProxy, useCookies);
+  const result = await executeCurl(url, useProxy, useCookies);
 
-      // Track HTTP status code in metrics
-      scraperHttpStatusTotal.inc({ status_code: String(result.status) });
+  // Track HTTP status code in metrics
+  scraperHttpStatusTotal.inc({ status_code: String(result.status) });
 
-      // Check for blocked
-      if (result.status === 403 || result.status === 429) {
-        throw new Error(`HTTP ${result.status}: Blocked`);
-      }
-
-      if (result.status === 0 || result.status >= 500) {
-        throw new Error(`HTTP ${result.status}: Server error`);
-      }
-
-      // Check for Cloudflare challenge (shouldn't happen with impersonate)
-      if (result.html.includes('challenge-running') || result.html.includes('cf-challenge') || result.html.includes('Just a moment')) {
-        throw new Error('Cloudflare challenge detected');
-      }
-
-      return result;
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      console.error(`[fetch] Failed ${slug}: ${lastError.message}`);
-
-      if (attempt < retries) {
-        // Longer backoff for rate limits (429/403)
-        const isRateLimited = lastError.message.includes('429') || lastError.message.includes('403');
-        if (isRateLimited) {
-          // 30-60s delay for rate limits
-          const delay = 30000 + Math.random() * 30000;
-          console.log(`[fetch] Rate limited, waiting ${Math.round(delay / 1000)}s...`);
-          await sleep(delay);
-        } else {
-          // Normal exponential backoff (adds 0-50% jitter)
-          const baseDelay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-          const jitter = baseDelay * Math.random() * 0.5;
-          await sleep(baseDelay + jitter);
-        }
-      }
-    }
+  // Check for blocked
+  if (result.status === 403 || result.status === 429) {
+    throw new Error(`HTTP ${result.status}: Blocked`);
   }
 
-  throw lastError ?? new Error('Failed to fetch page');
+  if (result.status === 0 || result.status >= 500) {
+    throw new Error(`HTTP ${result.status}: Server error`);
+  }
+
+  // Check for Cloudflare challenge (shouldn't happen with impersonate)
+  if (result.html.includes('challenge-running') || result.html.includes('cf-challenge') || result.html.includes('Just a moment')) {
+    throw new Error('Cloudflare challenge detected');
+  }
+
+  return result;
 }
 
 /**
