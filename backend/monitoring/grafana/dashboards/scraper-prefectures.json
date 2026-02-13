@@ -371,7 +371,7 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT city, prefecture, pharmacies_found, duties_found, status, http_status, duration_ms, error_message FROM scrape_city_results WHERE scrape_run_id = (SELECT id FROM scrape_runs ORDER BY started_at DESC LIMIT 1) AND ('$prefecture' = 'All' OR prefecture = '$prefecture') ORDER BY pharmacies_found DESC",
+          "rawSql": "SELECT city, prefecture, pharmacies_found, duties_found, status, http_status, duration_ms, error_message FROM scrape_city_results WHERE scrape_run_id = (SELECT id FROM scrape_runs ORDER BY started_at DESC LIMIT 1) AND ('${prefecture:raw}' = 'All' OR prefecture = '${prefecture:raw}') ORDER BY pharmacies_found DESC",
           "refId": "A"
         }
       ],
