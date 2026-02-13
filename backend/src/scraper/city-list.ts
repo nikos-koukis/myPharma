@@ -1,26 +1,19 @@
 /**
  * City list for xo.gr pharmacy scraper
  *
- * Cities are organized by prefecture in separate files under regions/
- * To add a new prefecture, create a new file in regions/ and import here
+ * Uses dynamic discovery - cities are discovered from prefecture pages at runtime
  */
 
-// Re-export CityConfig type
-export { CityConfig } from './types';
-import { CityConfig } from './types';
+// Re-export types
+export { CityConfig, PrefectureConfig } from './types';
+import { CityConfig, PrefectureConfig } from './types';
 
-// Import cities from region files
-import { ATTIKIS_CITIES } from './regions/attikis';
-import { ACHAIAS_CITIES } from './regions/achaias';
-import { THESSALONIKIS_CITIES } from './regions/thessalonikis';
-import { CHALKIDIKIS_CITIES } from './regions/chalkidikis';
+// Import prefectures for dynamic discovery
+import { ACHAIAS_PREFECTURE } from './regions/achaias';
 
-// Combined city list from all prefectures
-export const CITY_LIST: CityConfig[] = [
-  ...ATTIKIS_CITIES,
-  ...ACHAIAS_CITIES,
-  ...THESSALONIKIS_CITIES,
-  ...CHALKIDIKIS_CITIES,
+// Prefectures to scrape (cities discovered at runtime)
+export const DISCOVERY_PREFECTURES: PrefectureConfig[] = [
+  ACHAIAS_PREFECTURE,
 ];
 
 /**
@@ -65,43 +58,50 @@ export function getTomorrowForXo(): string {
 /**
  * Filter cities by prefecture
  */
-export function filterCitiesByPrefecture(prefecture: string): CityConfig[] {
+export function filterCitiesByPrefecture(cities: CityConfig[], prefecture: string): CityConfig[] {
   const q = prefecture.toLowerCase();
-  return CITY_LIST.filter((c) => c.prefecture.toLowerCase().includes(q));
+  return cities.filter((c) => c.prefecture.toLowerCase().includes(q));
 }
 
 /**
  * Filter cities by name
  */
-export function filterCitiesByName(name: string): CityConfig[] {
+export function filterCitiesByName(cities: CityConfig[], name: string): CityConfig[] {
   const q = name.toLowerCase();
-  return CITY_LIST.filter(
+  return cities.filter(
     (c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q)
   );
 }
 
 /**
- * Get all unique prefectures
+ * Get all unique prefectures from a city list
  */
-export function getPrefectures(): string[] {
-  return [...new Set(CITY_LIST.map((c) => c.prefecture))].sort((a, b) =>
+export function getPrefectures(cities: CityConfig[]): string[] {
+  return [...new Set(cities.map((c) => c.prefecture))].sort((a, b) =>
     a.localeCompare(b, 'el')
   );
 }
 
 /**
- * Get filtered city list based on SCRAPE_PREFECTURES env var.
+ * Get prefectures to scrape based on SCRAPE_PREFECTURES env var
  */
-export function getActiveCities(): CityConfig[] {
+export function getScrapePrefectureFilter(): string[] | null {
   const filter = process.env.SCRAPE_PREFECTURES?.trim();
-
   if (!filter) {
-    return CITY_LIST;
+    return null; // No filter = scrape all
   }
+  return filter.split(',').map(p => p.trim().toUpperCase());
+}
 
-  const prefectures = filter.split(',').map(p => p.trim().toUpperCase());
-
-  return CITY_LIST.filter(city =>
-    prefectures.some(p => city.prefecture.toUpperCase().includes(p))
+/**
+ * Get discovery prefectures filtered by SCRAPE_PREFECTURES env var
+ */
+export function getActiveDiscoveryPrefectures(): PrefectureConfig[] {
+  const filter = getScrapePrefectureFilter();
+  if (!filter) {
+    return DISCOVERY_PREFECTURES;
+  }
+  return DISCOVERY_PREFECTURES.filter(p =>
+    filter.some(f => p.name.toUpperCase().includes(f))
   );
 }

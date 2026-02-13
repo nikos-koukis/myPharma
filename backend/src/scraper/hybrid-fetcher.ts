@@ -22,27 +22,62 @@ export interface FetchResult {
 
 // Docker image for curl-impersonate Chrome variant (macOS only)
 const DOCKER_IMAGE = 'lwthiker/curl-impersonate:0.6-chrome';
-const CURL_BIN = 'curl_chrome116';
 const IS_LINUX = platform() === 'linux';
 
 // VPN interface - set VPN_INTERFACE env var (e.g., 'tun0') to route through VPN
 const VPN_INTERFACE: string | null = process.env.VPN_INTERFACE || null;
 
+// Randomization options to avoid detection
+const CHROME_VERSIONS = ['curl_chrome116', 'curl_chrome110', 'curl_chrome107', 'curl_chrome104'];
+
+const ACCEPT_LANGUAGES = [
+  'el-GR,el;q=0.9,en;q=0.8',
+  'el-GR,el;q=0.9,en-US;q=0.8,en;q=0.7',
+  'el,en-US;q=0.9,en;q=0.8',
+  'el-GR,el;q=0.8,en-GB;q=0.6,en;q=0.4',
+];
+
+const REFERERS = [
+  'https://www.google.com/',
+  'https://www.google.gr/',
+  'https://www.xo.gr/',
+  null, // No referer sometimes
+];
+
+function randomElement<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 /**
- * Build curl-impersonate command
+ * Build curl-impersonate command with randomized headers
  * Uses native binary on Linux, Docker on macOS
  */
 function buildCommand(url: string, useProxy: boolean): string {
   const proxyUrl = config.scraper.proxyUrl;
   const timeout = Math.floor(config.scraper.timeout / 1000);
 
+  // Randomize Chrome version for each request
+  const curlBin = randomElement(CHROME_VERSIONS);
+  const acceptLang = randomElement(ACCEPT_LANGUAGES);
+  const referer = randomElement(REFERERS);
+
   const curlArgs = [
     '-s',                    // Silent
     '-L',                    // Follow redirects
     `-m ${timeout}`,         // Max time
     '-w "\\n%{http_code}"',  // Output status code at end
-    '-H "accept-language: el-GR,el;q=0.9,en;q=0.8"',
+    `-H "accept-language: ${acceptLang}"`,
+    '-H "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"',
+    '-H "cache-control: max-age=0"',
+    '-H "sec-ch-ua-mobile: ?0"',
+    '-H "sec-ch-ua-platform: \\"Windows\\""',
+    '-H "upgrade-insecure-requests: 1"',
   ];
+
+  // Add referer randomly (sometimes browsers don't send it)
+  if (referer) {
+    curlArgs.push(`-H "referer: ${referer}"`);
+  }
 
   // Route through VPN interface (Linux only, set VPN_INTERFACE=tun0)
   if (VPN_INTERFACE) {
@@ -58,11 +93,11 @@ function buildCommand(url: string, useProxy: boolean): string {
 
   if (IS_LINUX) {
     // Native curl-impersonate on Linux
-    return `${CURL_BIN} ${curlArgs.join(' ')}`;
+    return `${curlBin} ${curlArgs.join(' ')}`;
   }
 
   // Docker on macOS (with platform emulation for ARM)
-  return `docker run --platform linux/amd64 --rm ${DOCKER_IMAGE} ${CURL_BIN} ${curlArgs.join(' ')}`;
+  return `docker run --platform linux/amd64 --rm ${DOCKER_IMAGE} ${curlBin} ${curlArgs.join(' ')}`;
 }
 
 /**
@@ -114,12 +149,13 @@ async function executeCurl(url: string, useProxy: boolean): Promise<FetchResult>
 export async function fetchPage(url: string, retries = 3): Promise<FetchResult> {
   let lastError: Error | null = null;
 
+  // Extract city slug from URL for cleaner logging
+  const slug = url.match(/farmakeia\/([^/?]+)/)?.[1] || url;
+
   for (let attempt = 1; attempt <= retries; attempt++) {
     const useProxy = false;
 
     try {
-      // Extract city slug from URL for cleaner logging
-      const slug = url.match(/farmakeia\/([^/?]+)/)?.[1] || url;
       console.log(`[fetch] ${slug}${attempt > 1 ? ` (retry ${attempt})` : ''}`);
 
       const result = await executeCurl(url, useProxy);
@@ -144,11 +180,13 @@ export async function fetchPage(url: string, retries = 3): Promise<FetchResult> 
       return result;
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      console.error(`[fetch] Failed: ${lastError.message}`);
+      console.error(`[fetch] Failed ${slug}: ${lastError.message}`);
 
       if (attempt < retries) {
-        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
-        await sleep(delay);
+        // Randomized exponential backoff (adds 0-50% jitter)
+        const baseDelay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+        const jitter = baseDelay * Math.random() * 0.5;
+        await sleep(baseDelay + jitter);
       }
     }
   }

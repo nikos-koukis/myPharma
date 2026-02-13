@@ -1,6 +1,8 @@
 import { fetchPage, closeBrowser } from './hybrid-fetcher';
 import { parsePharmacyHtml, PharmacyData } from './html-parser';
-import { getActiveCities, CityConfig, getCityUrl, getTodayForXo, getTomorrowForXo } from './city-list';
+import { CityConfig, getCityUrl, getTodayForXo, getTomorrowForXo, getScrapePrefectureFilter } from './city-list';
+import { discoverCities, discoverAllPrefectures } from './prefecture-discoverer';
+import { PrefectureConfig } from './types';
 import { geocodeAddress, sleep } from './geocoder';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db/client';
@@ -8,11 +10,60 @@ import { invalidatePattern } from '../cache/redis';
 import { config } from '../config';
 
 /**
- * Main scraper entry point — scrapes all cities from the hardcoded city list
+ * Main scraper entry point
+ * 1. Discovers all prefectures from xo.gr (or filters by SCRAPE_PREFECTURES env)
+ * 2. Discovers cities from prefecture pages
+ * 3. Scrapes all discovered cities
  */
 export async function runScraper(): Promise<void> {
-  const cities = getActiveCities();
-  console.log(`[scraper] Will scrape ${cities.length} cities...`);
+  console.log('[scraper] Starting...');
+
+  // Discover all prefectures from xo.gr
+  console.log('[scraper] Discovering prefectures from xo.gr...');
+  let allPrefectures: PrefectureConfig[];
+  try {
+    allPrefectures = await discoverAllPrefectures();
+  } catch (err) {
+    console.error('[scraper] Failed to discover prefectures:', err);
+    return;
+  }
+
+  // Filter by SCRAPE_PREFECTURES env var if set
+  const filter = getScrapePrefectureFilter();
+  const prefecturesToScrape = filter
+    ? allPrefectures.filter(p => filter.some(f => p.name.toUpperCase().includes(f) || p.slug.toUpperCase().includes(f)))
+    : allPrefectures;
+
+  if (prefecturesToScrape.length === 0) {
+    console.log('[scraper] No prefectures to scrape (check SCRAPE_PREFECTURES filter)');
+    return;
+  }
+
+  console.log(`[scraper] Will scrape ${prefecturesToScrape.length} prefecture(s)${filter ? ' (filtered)' : ' (all Greece)'}...`);
+
+  // Discover cities from each prefecture
+  const cities: CityConfig[] = [];
+  for (const prefecture of prefecturesToScrape) {
+    try {
+      const prefectureCities = await discoverCities(prefecture);
+      cities.push(...prefectureCities);
+      console.log(`[scraper] Discovered ${prefectureCities.length} cities for ${prefecture.name}`);
+
+      // Rate limit between prefecture discoveries
+      if (prefecturesToScrape.indexOf(prefecture) < prefecturesToScrape.length - 1) {
+        await sleep(5000);
+      }
+    } catch (err) {
+      console.error(`[scraper] Failed to discover cities for ${prefecture.name}:`, err);
+    }
+  }
+
+  console.log(`[scraper] Will scrape ${cities.length} discovered cities`);
+
+  if (cities.length === 0) {
+    console.log('[scraper] No cities to scrape');
+    return;
+  }
 
   const scrapeRun = await prisma.scrapeRun.create({
     data: {
@@ -279,26 +330,86 @@ async function savePharmacy(data: PharmacyData): Promise<number> {
       await sleep(config.geocoder.rateLimit);
     }
 
-    // Upsert duty record
-    await prisma.pharmacyDuty.upsert({
-      where: {
-        pharmacyId_dutyDate: {
-          pharmacyId: pharmacy.id,
-          dutyDate: new Date(data.dutyDate),
-        },
-      },
-      update: {
-        scrapedAt: new Date(),
-        duties: data.duties as unknown as Prisma.InputJsonValue,
-      },
-      create: {
-        pharmacyId: pharmacy.id,
-        dutyDate: new Date(data.dutyDate),
-        duties: data.duties as unknown as Prisma.InputJsonValue,
-      },
-    });
+    // Check if this is an overnight shift (end hour < start hour)
+    // If so, create TWO duty records: one for today, one for tomorrow
+    let dutiesCreated = 0;
 
-    return 1;
+    for (const duty of data.duties) {
+      const startHour = parseInt(duty.start.split(':')[0], 10);
+      const endHour = parseInt(duty.end.split(':')[0], 10);
+      const isOvernight = endHour < startHour;
+
+      if (isOvernight) {
+        // Split into two records:
+        // Day 1: start time to 23:59
+        // Day 2: 00:00 to end time
+        const day1Date = new Date(data.dutyDate);
+        const day2Date = new Date(data.dutyDate);
+        day2Date.setDate(day2Date.getDate() + 1);
+
+        // Day 1 duty (e.g., 21:00 - 23:59)
+        await prisma.pharmacyDuty.upsert({
+          where: {
+            pharmacyId_dutyDate: {
+              pharmacyId: pharmacy.id,
+              dutyDate: day1Date,
+            },
+          },
+          update: {
+            scrapedAt: new Date(),
+            duties: [{ start: duty.start, end: '23:59', type: duty.type }] as unknown as Prisma.InputJsonValue,
+          },
+          create: {
+            pharmacyId: pharmacy.id,
+            dutyDate: day1Date,
+            duties: [{ start: duty.start, end: '23:59', type: duty.type }] as unknown as Prisma.InputJsonValue,
+          },
+        });
+        dutiesCreated++;
+
+        // Day 2 duty (e.g., 00:00 - 08:00)
+        await prisma.pharmacyDuty.upsert({
+          where: {
+            pharmacyId_dutyDate: {
+              pharmacyId: pharmacy.id,
+              dutyDate: day2Date,
+            },
+          },
+          update: {
+            scrapedAt: new Date(),
+            duties: [{ start: '00:00', end: duty.end, type: duty.type }] as unknown as Prisma.InputJsonValue,
+          },
+          create: {
+            pharmacyId: pharmacy.id,
+            dutyDate: day2Date,
+            duties: [{ start: '00:00', end: duty.end, type: duty.type }] as unknown as Prisma.InputJsonValue,
+          },
+        });
+        dutiesCreated++;
+      } else {
+        // Regular shift - single record
+        await prisma.pharmacyDuty.upsert({
+          where: {
+            pharmacyId_dutyDate: {
+              pharmacyId: pharmacy.id,
+              dutyDate: new Date(data.dutyDate),
+            },
+          },
+          update: {
+            scrapedAt: new Date(),
+            duties: [duty] as unknown as Prisma.InputJsonValue,
+          },
+          create: {
+            pharmacyId: pharmacy.id,
+            dutyDate: new Date(data.dutyDate),
+            duties: [duty] as unknown as Prisma.InputJsonValue,
+          },
+        });
+        dutiesCreated++;
+      }
+    }
+
+    return dutiesCreated > 0 ? 1 : 0;
   } catch (err) {
     console.error(`[scraper] Failed to save pharmacy ${data.name}:`, err);
     return 0;

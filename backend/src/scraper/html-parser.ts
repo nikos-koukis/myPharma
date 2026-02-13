@@ -80,9 +80,27 @@ export function parsePharmacyHtml(
         }
       }
 
-      // Extract duty info from pharmacyInfo
+      // Extract duty info from pharmacyInfo or openNote (fallback)
+      // pharmacyInfo: "14:30 - 17:30 και 21:00 - 22:30"
+      // openNote: "Εφημερεύει 09:00 - 21:00"
       const pharmacyInfo = typeof listing.pharmacyInfo === 'string' ? listing.pharmacyInfo : '';
-      const duties = parseDutyHours(pharmacyInfo);
+      const openNote = typeof listing.openNote === 'string' ? listing.openNote : '';
+
+      let duties = parseDutyHours(pharmacyInfo);
+
+      // Fallback to openNote if pharmacyInfo didn't have duty hours
+      if (duties.length === 0 && openNote) {
+        duties = parseDutyHours(openNote);
+      }
+
+      // Debug: log when duties couldn't be parsed from either source
+      if (duties.length === 0 && (pharmacyInfo || openNote)) {
+        console.log(`[parser] No duties parsed for ${name}. pharmacyInfo: "${pharmacyInfo}", openNote: "${openNote}"`);
+      }
+
+      // Keep the duty date as the START date (when the shift begins)
+      // For overnight shifts (21:00-08:00), the duty date is when it STARTS
+      // The API query logic will handle "currently open" calculations
 
       // Dedupe by name + address
       const key = `${name}|${address}`;
@@ -124,6 +142,7 @@ interface ListingData {
   address?: string;
   phones?: PhoneData;
   pharmacyInfo?: string;
+  openNote?: string;  // Contains duty hours like "Εφημερεύει 09:00 - 21:00"
 }
 
 /**
@@ -190,6 +209,7 @@ function extractListings(data: unknown[]): ListingData[] {
     const listingAddress = resolveString(obj.listingAddress);
     const address = resolveString(obj.address);
     const pharmacyInfo = resolveString(obj.pharmacyInfo);
+    const openNote = resolveString(obj.openNote);  // "Εφημερεύει 09:00 - 21:00"
     const phones = resolvePhones(obj.phones);
 
     // Must have name and address
@@ -197,7 +217,7 @@ function extractListings(data: unknown[]): ListingData[] {
       return null;
     }
 
-    return { fullName, name, listingAddress, address, phones, pharmacyInfo };
+    return { fullName, name, listingAddress, address, phones, pharmacyInfo, openNote };
   }
 
   // Find listing objects by scanning for objects with pharmacy-like properties
@@ -294,6 +314,8 @@ function formatPhone(phone: string): string | null {
 /**
  * Parse duty hours from pharmacyInfo text
  * Format: "09:00 - 14:00" or "Εφημερεύει 21:00 - 08:00"
+ *
+ * All pharmacies from xo.gr "Εφημερεύοντα Φαρμακεία" are on-duty by definition
  */
 function parseDutyHours(text: string): DutySlot[] {
   if (!text) return [];
@@ -305,22 +327,8 @@ function parseDutyHours(text: string): DutySlot[] {
   const matches = [...text.matchAll(timePattern)];
 
   for (const match of matches) {
-    const start = match[1];
-    const end = match[2];
-    const startHour = parseInt(start.split(':')[0], 10);
-    const endHour = parseInt(end.split(':')[0], 10);
-    const extendsToNextDay = endHour < startHour;
-
-    // Determine duty type based on hours
-    let type: 'regular' | 'extended' | 'on_duty' = 'on_duty';
-    if (startHour >= 8 && startHour < 14 && !extendsToNextDay) {
-      type = 'regular'; // Morning regular hours
-    } else if (startHour >= 17 && startHour < 21 && !extendsToNextDay) {
-      type = 'extended'; // Extended evening hours
-    }
-    // Night shifts (21:00+) or extending to next day = on_duty
-
-    duties.push({ start, end, type });
+    // All pharmacies from "Εφημερεύοντα" page are on_duty
+    duties.push({ start: match[1], end: match[2], type: 'on_duty' });
   }
 
   return duties;

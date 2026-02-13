@@ -1,6 +1,5 @@
 /**
- * Region exports - each prefecture in its own file
+ * Region exports - prefectures for dynamic city discovery
  */
 
-export { ATTIKIS_CITIES } from './attikis';
-export { ACHAIAS_CITIES } from './achaias';
+export { ACHAIAS_PREFECTURE } from './achaias';
