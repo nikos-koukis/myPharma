@@ -1,136 +1,99 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, FlatList, StyleSheet, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { PharmacyIcon } from '../../src/components/PharmacyIcon';
-import { useRouter } from 'expo-router';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { useAppStore } from '../../src/store';
-import { useOnDutyPharmacies } from '../../src/hooks/usePharmacies';
-import { useAutoLocation } from '../../src/hooks/useAutoLocation';
+import { useNearbyPharmacies } from '../../src/hooks/usePharmacies';
+import { useLocation } from '../../src/hooks/useLocation';
 import { DatePicker } from '../../src/components/DatePicker';
 import { PharmacyCard } from '../../src/components/PharmacyCard';
 import { LoadingState } from '../../src/components/LoadingState';
 import { EmptyState } from '../../src/components/EmptyState';
 import { useTranslation } from '../../src/i18n/translations';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { calculateDistance } from '../../src/utils/distance';
 import { isOpenNow, getNextOpening } from '../../src/utils/dutySchedule';
-import type { Pharmacy } from '../../src/types';
-
-type FilterType = 'open' | 'opening_soon';
-
-interface PharmacyWithDistance extends Pharmacy {
-  distance_meters?: number;
-  _isOpen?: boolean;
-  _isOpeningSoon?: boolean;
-}
-
 import { LinearGradient } from 'expo-linear-gradient';
+
+type FilterType = 'open' | 'opening_later';
 
 export default function OnDutyScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const router = useRouter();
   const [filter, setFilter] = useState<FilterType>('open');
 
-  // Auto-detect location on first launch
-  const { detecting } = useAutoLocation();
-
-  const userLocation = useAppStore((s) => s.userLocation);
-  const selectedPrefecture = useAppStore((s) => s.selectedPrefecture);
-  const selectedCity = useAppStore((s) => s.selectedCity);
+  const { lat, lng, loading: locLoading } = useLocation();
   const selectedDate = useAppStore((s) => s.selectedDate);
 
-  const { data, isLoading, refetch, isRefetching } = useOnDutyPharmacies({
-    region: selectedPrefecture ?? undefined,
-    city: selectedCity ?? undefined,
+  const { data, isLoading, refetch, isRefetching } = useNearbyPharmacies({
+    lat: lat ?? 0,
+    lng: lng ?? 0,
+    radius: 25000, // 25km radius
     date: selectedDate,
+    enabled: lat != null && lng != null,
   });
 
-  // Add distance and open status to each pharmacy
-  const pharmaciesWithDistance = useMemo((): PharmacyWithDistance[] => {
+  // Process pharmacies
+  const pharmaciesWithStatus = useMemo(() => {
     if (!data) return [];
 
     return data.map((p) => {
-      // Calculate distance if we have user location and pharmacy coordinates
-      let distance_meters: number | undefined;
-      if (userLocation && p.lat && p.lng) {
-        distance_meters = calculateDistance(
-          userLocation.lat,
-          userLocation.lng,
-          p.lat,
-          p.lng
-        );
-      }
-
-      // Get duty slots from the pharmacy's duties array
-      const dutySlots = p.duties?.[0]?.duties ?? [];
+      // Get duty slots directly from NearbyPharmacy
+      const dutySlots = p.duties || [];
       const _isOpen = isOpenNow(dutySlots);
 
-      // Check if opening soon (within 60 mins)
-      let _isOpeningSoon = false;
+      // Check if has a future opening
+      let _isOpeningLater = false;
+      let _minutesToOpening = Infinity;
       if (!_isOpen) {
         const nextOpening = getNextOpening(dutySlots);
-        if (nextOpening && !nextOpening.isTomorrow && nextOpening.minutesUntil <= 60) {
-          _isOpeningSoon = true;
+        if (nextOpening) {
+          _isOpeningLater = true;
+          _minutesToOpening = nextOpening.minutesUntil;
         }
       }
 
-      return { ...p, distance_meters, _isOpen, _isOpeningSoon };
-    }).sort((a, b) => {
-      // CRITICAL: Pharmacies with distance should ALWAYS come before those without
-      const aHasDistance = a.distance_meters !== undefined;
-      const bHasDistance = b.distance_meters !== undefined;
-
-      // If only one has distance, prioritize it
-      if (aHasDistance && !bHasDistance) return -1;
-      if (!aHasDistance && bHasDistance) return 1;
-
-      // Both have distance: sort by actual distance
-      if (aHasDistance && bHasDistance) {
-        return a.distance_meters! - b.distance_meters!;
+      return { ...p, _isOpen, _isOpeningLater, _minutesToOpening };
+    }).filter((p) => {
+      // CRITICAL: Filter out mislocated pharmacies (e.g., Attica pharmacy appearing in Patra coords)
+      const isInPatraCoords = p.lat > 38.0 && p.lat < 38.4 && p.lng > 21.6 && p.lng < 21.9;
+      const isLabeledAttica = p.region.includes('Αττικ') || p.address.includes('Αττικής');
+      if (isInPatraCoords && isLabeledAttica) {
+        console.log(`[List] Filtering mislocated pharmacy: ${p.name}`);
+        return false;
       }
-
-      // Neither has distance: sort by open status
+      return true;
+    }).sort((a, b) => {
+      if (filter === 'opening_later') {
+        // For opening_later tab, sort by minutes to opening
+        return a._minutesToOpening - b._minutesToOpening;
+      }
+      // Default: Sort by open status first, then distance
       if (a._isOpen && !b._isOpen) return -1;
       if (!a._isOpen && b._isOpen) return 1;
-
-      return 0;
+      return a.distance_meters - b.distance_meters;
     });
-  }, [data, userLocation]);
+  }, [data, filter]);
 
-  // Filter data based on logic
+  // Filter data
   const filteredData = useMemo(() => {
-    if (filter === 'open') return pharmaciesWithDistance.filter((p) => p._isOpen);
-    if (filter === 'opening_soon') return pharmaciesWithDistance.filter((p) => p._isOpeningSoon);
+    if (filter === 'open') return pharmaciesWithStatus.filter((p) => p._isOpen);
+    if (filter === 'opening_later') return pharmaciesWithStatus.filter((p) => p._isOpeningLater);
     return [];
-  }, [pharmaciesWithDistance, filter]);
+  }, [pharmaciesWithStatus, filter]);
 
-  // Count open/soon for filter badges
-  const openCount = useMemo(() => pharmaciesWithDistance.filter((p) => p._isOpen).length, [pharmaciesWithDistance]);
-  const soonCount = useMemo(() => pharmaciesWithDistance.filter((p) => p._isOpeningSoon).length, [pharmaciesWithDistance]);
+  // Count open/later for filter badges
+  const openCount = useMemo(() => pharmaciesWithStatus.filter((p) => p._isOpen).length, [pharmaciesWithStatus]);
+  const laterCount = useMemo(() => pharmaciesWithStatus.filter((p) => p._isOpeningLater).length, [pharmaciesWithStatus]);
 
-  // Gradient colors based on theme
   const gradientColors = isDark
-    ? ['#0F172A', '#020617'] as [string, string] // Dark blue/slate gradient
-    : ['#E0F2E9', '#F0FDF4', '#FFFFFF'] as [string, string, string]; // Mint green to white
+    ? ['#0F172A', '#020617'] as [string, string]
+    : ['#E0F2E9', '#F0FDF4', '#FFFFFF'] as [string, string, string];
 
-  // Show loading while detecting location
-  if (detecting) {
+  if (locLoading || (isLoading && !data)) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.detectingContainer}>
-          <View style={[styles.detectingIcon, { backgroundColor: colors.primaryLight }]}>
-            <Ionicons name="location" size={32} color={colors.primary} />
-          </View>
-          <Text style={[styles.detectingTitle, { color: colors.text }]}>
-            {t('detecting_location')}
-          </Text>
-          <Text style={[styles.detectingSubtitle, { color: colors.textTertiary }]}>
-            {t('finding_area')}
-          </Text>
-        </View>
+        <LoadingState />
       </View>
     );
   }
@@ -144,36 +107,14 @@ export default function OnDutyScreen() {
         end={{ x: 1, y: 1 }}
       />
 
-      {/* Location Header */}
-      <Pressable
-        style={[
-          styles.locationHeader,
-          {
-            borderColor: colors.border,
-            marginTop: insets.top + 12,
-          }
-        ]}
-        onPress={() => router.push('/location-picker')}
-      >
-        <View style={[styles.locationIcon, { backgroundColor: colors.primaryLight }]}>
-          <Ionicons name="location" size={20} color={colors.primary} />
-        </View>
-        <View style={styles.locationInfo}>
-          <Text style={[styles.locationLabel, { color: colors.textTertiary }]}>
-            {t('my_location')}
-          </Text>
-          <Text style={[styles.locationName, { color: colors.text }]}>
-            {selectedCity || selectedPrefecture || t('select_area')}
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-      </Pressable>
+      {/* Header Spacer */}
+      <View style={{ height: insets.top + 20 }} />
 
       {/* Filter Chips */}
-      {pharmaciesWithDistance.length > 0 && (
+      {pharmaciesWithStatus.length > 0 && (
         <View style={styles.filterContainer}>
           <Pressable
-            style={({ pressed }) => [
+            style={({ pressed }: { pressed: boolean }) => [
               styles.filterChip,
               filter === 'open' && styles.filterChipActive,
               {
@@ -201,66 +142,46 @@ export default function OnDutyScreen() {
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [
+            style={({ pressed }: { pressed: boolean }) => [
               styles.filterChip,
-              filter === 'opening_soon' && styles.filterChipActive,
+              filter === 'opening_later' && styles.filterChipActive,
               {
-                backgroundColor: filter === 'opening_soon' ? colors.warningLight : colors.surfaceSecondary,
-                borderColor: filter === 'opening_soon' ? colors.warning : colors.border,
+                backgroundColor: filter === 'opening_later' ? colors.warningLight : colors.surfaceSecondary,
+                borderColor: filter === 'opening_later' ? colors.warning : colors.border,
                 opacity: pressed ? 0.7 : 1,
               },
             ]}
-            onPress={() => setFilter('opening_soon')}
+            onPress={() => setFilter('opening_later')}
           >
             <View style={[styles.statusDot, { backgroundColor: colors.warning }]} />
             <Text
               style={[
                 styles.filterText,
-                { color: filter === 'opening_soon' ? colors.warning : colors.textSecondary },
+                { color: filter === 'opening_later' ? colors.warning : colors.textSecondary },
               ]}
             >
-              {t('opening_soon')}
+              {t('opening_later')}
             </Text>
-            <View style={[styles.filterBadge, { backgroundColor: filter === 'opening_soon' ? colors.warning : colors.border }]}>
-              <Text style={[styles.filterBadgeText, { color: filter === 'opening_soon' ? '#000000' : colors.textSecondary }]}>
-                {soonCount}
+            <View style={[styles.filterBadge, { backgroundColor: filter === 'opening_later' ? colors.warning : colors.border }]}>
+              <Text style={[styles.filterBadgeText, { color: filter === 'opening_later' ? '#000000' : colors.textSecondary }]}>
+                {laterCount}
               </Text>
             </View>
           </Pressable>
-
-
         </View>
       )}
 
-      {isLoading ? (
-        <LoadingState />
-      ) : !pharmaciesWithDistance.length ? (
+      {!pharmaciesWithStatus.length && !isLoading ? (
         <EmptyState
           title={t('no_on_duty')}
           subtitle={t('change_date')}
         />
-      ) : !filteredData.length ? (
+      ) : !filteredData.length && !isLoading ? (
         <EmptyState
           title={
-            filter === 'open' ? t('no_open_pharmacies') :
-              filter === 'opening_soon' ? t('no_opening_soon') :
-                t('no_results')
+            filter === 'open' ? t('no_open_pharmacies') : t('no_opening_later')
           }
-          subtitle={(() => {
-            // Check if we're in regular pharmacy hours (08:00-14:00 or 17:00-21:00)
-            const now = new Date();
-            const hours = now.getHours();
-            const isRegularHours = (hours >= 8 && hours < 14) || (hours >= 17 && hours < 21);
-
-            if (isRegularHours && filter === 'open') {
-              const lang = useAppStore.getState().language;
-              return lang === 'en'
-                ? 'Pharmacies are open during regular hours now. On-duty pharmacies are needed after 14:00 or after 21:00.'
-                : 'Τα φαρμακεία είναι σε κανονικό ωράριο τώρα και είναι όλα ανοιχτά. Εφημερεύοντα φαρμακεία μπορείτε να αναζητήσετε μετά τις 14:00 ή μετά τις 21:00.';
-            }
-
-            return t('try_different_filter');
-          })()}
+          subtitle={t('try_different_filter')}
         />
       ) : (
         <FlatList
@@ -268,9 +189,9 @@ export default function OnDutyScreen() {
           keyExtractor={(item) => item.id}
           renderItem={({ item, index }) => (
             <PharmacyCard
-              pharmacy={item}
+              pharmacy={item as any}
               distance={item.distance_meters}
-              isClosest={index === 0}
+              isClosest={filter === 'open' && index === 0}
             />
           )}
           refreshing={isRefetching}
@@ -280,9 +201,7 @@ export default function OnDutyScreen() {
           ListHeaderComponent={
             <Text style={[styles.resultCount, { color: colors.textTertiary }]}>
               {filteredData.length} {filteredData.length === 1 ? t('pharmacy_singular') : t('pharmacies_plural')} {
-                filter === 'open' ? t('is_open') :
-                  filter === 'opening_soon' ? t('are_opening_now') :
-                    t('are_on_duty')
+                filter === 'open' ? t('is_open') : t('are_opening_later')
               }
             </Text>
           }
@@ -295,60 +214,6 @@ export default function OnDutyScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  detectingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  detectingIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  detectingTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  detectingSubtitle: {
-    fontSize: 15,
-  },
-  locationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: 12,
-    marginBottom: 8,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 12,
-  },
-  locationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  locationInfo: {
-    flex: 1,
-  },
-  locationLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  locationName: {
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: -0.3,
   },
   filterContainer: {
     flexDirection: 'row',
@@ -393,7 +258,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   list: {
-    paddingBottom: 120, // Extra padding to prevent last item from being hidden behind tab bar
+    paddingBottom: 120,
     paddingTop: 8,
   },
   resultCount: {

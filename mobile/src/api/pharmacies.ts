@@ -7,11 +7,17 @@ export async function getOnDutyPharmacies(params: {
   city?: string;
   date?: string;
 }): Promise<Pharmacy[]> {
-  // Normalize region and city to ensure consistent casing
-  // CRITICAL: We also remove accents for the region to avoid encoding issues with chars like 'ΐ'
+  // Normalize region and city.
+  // CRITICAL: For regions, we use a prefix (first 3-4 chars) if it's long, 
+  // to avoid encoding/tonos issues with special chars like 'ΐ' or 'ή'.
+  let searchRegion = params.region;
+  if (searchRegion && searchRegion.length > 3) {
+    searchRegion = searchRegion.trim().substring(0, 3); // e.g., "Αχα" from "Αχαΐας"
+  }
+
   const normalizedParams = {
     ...params,
-    region: params.region ? removeGreekAccents(params.region) : undefined,
+    region: searchRegion,
     city: params.city ? normalizeGreekLocation(params.city) : undefined,
   };
 

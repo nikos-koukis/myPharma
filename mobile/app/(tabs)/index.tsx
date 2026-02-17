@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,13 +11,13 @@ import {
   Image,
   Alert,
   ScrollView,
+  Modal,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { openDirections } from '../../src/utils/linking';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { PharmacyIcon } from '../../src/components/PharmacyIcon';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { useLocation } from '../../src/hooks/useLocation';
 import { useNearbyPharmacies } from '../../src/hooks/usePharmacies';
@@ -35,8 +35,7 @@ const RADIUS_OPTIONS = (t: any) => [
   { label: '1' + t('km'), value: 1000 },
   { label: '5' + t('km'), value: 5000 },
   { label: '10' + t('km'), value: 10000 },
-  { label: '15' + t('km'), value: 15000 },
-  { label: '50' + t('km'), value: 50000 },
+  { label: '25' + t('km'), value: 25000 },
 ];
 
 type StatusFilter = 'all' | 'open' | 'closed';
@@ -55,14 +54,13 @@ export default function MapScreen() {
   const selectedDate = useAppStore((s) => s.selectedDate);
   const [searchQuery, setSearchQuery] = useState('');
   const [showList, setShowList] = useState(false);
-  const [selectedRadius, setSelectedRadius] = useState<number | null>(null); // null means "find closest regardless"
+  const [selectedRadius, setSelectedRadius] = useState<number | null>(25000); // Default to 25km
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
   const [selectedPharmacy, setSelectedPharmacy] = useState<NearbyPharmacy | null>(null);
+  const [showInfoPopup, setShowInfoPopup] = useState(false);
 
   const handleClosePharmacy = useCallback(() => {
     setSelectedPharmacy(null);
-    // When closing a pharmacy preview, if we don't have a radius set,
-    // default to 10km to show a good overview of the area.
     if (selectedRadius === null) {
       setSelectedRadius(10000);
     }
@@ -71,7 +69,6 @@ export default function MapScreen() {
   const handleRadiusChange = useCallback((radius: number) => {
     setSelectedRadius(radius);
     setSelectedPharmacy(null);
-    // Force a small delay to ensure the map reacts to the null pharmacy first
   }, []);
 
   const { data, isLoading, refetch, isRefetching } = useNearbyPharmacies({
@@ -85,14 +82,17 @@ export default function MapScreen() {
   const filteredData = useMemo(() => {
     if (!data) return [];
     return data.filter((p) => {
-      // Filter by search query
+      const isInPatraCoords = p.lat > 38.0 && p.lat < 38.4 && p.lng > 21.6 && p.lng < 21.9;
+      const isLabeledAttica = p.region.includes('Αττικ') || p.address.includes('Αττικής');
+      if (isInPatraCoords && isLabeledAttica) {
+        return false;
+      }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         if (!p.name.toLowerCase().includes(q) && !p.address.toLowerCase().includes(q)) {
           return false;
         }
       }
-      // Filter by status
       if (statusFilter === 'open' && !isOpenNow(p.duties)) {
         return false;
       }
@@ -103,32 +103,19 @@ export default function MapScreen() {
     });
   }, [data, searchQuery, statusFilter]);
 
-  // Auto-select radius based on closest pharmacy distance (only on first load)
+  const hasInitialSelection = useRef(false);
+
   useEffect(() => {
-    if (data && data.length > 0 && selectedRadius === null && lat && lng) {
-      const closestPharmacy = data[0]; // Already sorted by distance from API
-      if (closestPharmacy.distance_meters) {
-        const distanceInMeters = closestPharmacy.distance_meters;
+    hasInitialSelection.current = false;
+  }, [data]);
 
-        // Choose radius based on closest pharmacy distance
-        let autoRadius: number;
-        if (distanceInMeters <= 3000) {
-          autoRadius = 5000; // 5km
-        } else if (distanceInMeters <= 8000) {
-          autoRadius = 10000; // 10km
-        } else if (distanceInMeters <= 12000) {
-          autoRadius = 15000; // 15km
-        } else {
-          autoRadius = 50000; // 50km
-        }
-
-        console.log(`[AutoRadius] Closest pharmacy at ${(distanceInMeters / 1000).toFixed(1)}km, selecting ${autoRadius / 1000}km radius`);
-        setSelectedRadius(autoRadius);
-      }
+  useEffect(() => {
+    if (filteredData && filteredData.length > 0 && !selectedPharmacy && !hasInitialSelection.current) {
+      setSelectedPharmacy(filteredData[0]);
+      hasInitialSelection.current = true;
     }
-  }, [data, selectedRadius, lat, lng]);
+  }, [filteredData, selectedPharmacy]);
 
-  // Clear selection if radius change leads to no results
   useEffect(() => {
     if (filteredData.length === 0 && selectedPharmacy) {
       setSelectedPharmacy(null);
@@ -160,7 +147,6 @@ export default function MapScreen() {
       {/* Map View Controls */}
       {!showList && (
         <View style={[styles.floatingControls, { top: insets.top + 16 }]}>
-          {/* Bottom Row: Radius Filters */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -191,12 +177,22 @@ export default function MapScreen() {
                 </BlurView>
               </Pressable>
             ))}
+
+            <Pressable onPress={() => setShowInfoPopup(true)}>
+              <BlurView
+                intensity={60}
+                tint={isDark ? 'dark' : 'light'}
+                style={[styles.infoChip, { borderColor: colors.glassBorder }]}
+              >
+                <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
+              </BlurView>
+            </Pressable>
           </ScrollView>
         </View>
       )}
 
       {/* Full Screen Map */}
-      {lat && lng && !showList && (
+      {lat != null && lng != null && !showList && (
         <View style={styles.mapWrapper}>
           <PharmacyMap
             pharmacies={filteredData}
@@ -207,6 +203,29 @@ export default function MapScreen() {
             onSelectPharmacy={setSelectedPharmacy}
             isRefetching={isRefetching}
           />
+
+          {filteredData.length === 0 && !isLoading && !searchQuery && (
+            <View style={StyleSheet.absoluteFill}>
+              <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+              <View style={styles.emptyMapOverlay}>
+                <BlurView intensity={90} tint={isDark ? 'dark' : 'light'} style={styles.emptyMapCard}>
+                  <View style={[styles.emptyIconCircle, { backgroundColor: colors.primaryLight }]}>
+                    <Ionicons name="medical" size={32} color={colors.primary} />
+                  </View>
+                  <Text style={[styles.emptyMapTitle, { color: colors.text }]}>
+                    {t('no_pharmacies_found')}
+                  </Text>
+                  <Text style={[styles.emptyMapSubtitle, { color: colors.textSecondary }]}>
+                    Η εφαρμογή εμφανίζει τα εφημερεύοντα φαρμακεία και αυτά με διευρυμένο ωράριο. Κατά τις ώρες λειτουργίας των καταστημάτων, όλα τα φαρμακεία είναι ανοιχτά.
+                    {'\n\n'}
+                    Ενδέχεται η εφαρμογή να μην έχει ακόμα στοιχεία για την περιοχή σας.
+                  </Text>
+
+
+                </BlurView>
+              </View>
+            </View>
+          )}
         </View>
       )}
 
@@ -225,7 +244,6 @@ export default function MapScreen() {
           onRefresh={refetch}
           ListHeaderComponent={
             <View style={styles.listHeader}>
-              {/* Search bar in list */}
               <View style={styles.listSearchContainer}>
                 <View style={[styles.listSearchBar, { backgroundColor: colors.surfaceSecondary }]}>
                   <Ionicons name="search" size={18} color={colors.textTertiary} />
@@ -250,7 +268,6 @@ export default function MapScreen() {
                 </Pressable>
               </View>
 
-              {/* Results count */}
               <View style={styles.resultsHeader}>
                 <Text style={[styles.resultsCount, { color: colors.text }]}>
                   {filteredData?.length ?? 0} {t('pharmacies_count')}
@@ -260,7 +277,6 @@ export default function MapScreen() {
                 </Text>
               </View>
 
-              {/* Status Filters */}
               <View style={styles.filtersContainer}>
                 {STATUS_OPTIONS(t).map((option) => {
                   const isSelected = statusFilter === option.value;
@@ -288,7 +304,6 @@ export default function MapScreen() {
                 })}
               </View>
 
-              {/* Radius Filters */}
               <View style={styles.filtersContainer}>
                 <Ionicons name="locate-outline" size={16} color={colors.textTertiary} style={{ marginRight: 4 }} />
                 {RADIUS_OPTIONS(t).map((option) => (
@@ -330,7 +345,6 @@ export default function MapScreen() {
         />
       )}
 
-      {/* Directions Preview Card - Glassmorphism */}
       {!showList && selectedPharmacy && (
         <View style={[styles.bottomSafeArea, { paddingBottom: insets.bottom + 96 }]}>
           <BlurView
@@ -338,7 +352,6 @@ export default function MapScreen() {
             tint={isDark ? 'dark' : 'light'}
             style={[styles.directionsCard, { borderColor: colors.glassBorder }]}
           >
-            {/* Pharmacy Name Header */}
             <View style={styles.directionsHeader}>
               <Image
                 source={require('../../assets/pharma.png')}
@@ -371,7 +384,7 @@ export default function MapScreen() {
                     <Ionicons
                       name="call"
                       size={16}
-                      color={isDark ? colors.primary : colors.text}
+                      color={isSmallDevice() ? colors.text : (isDark ? colors.primary : colors.text)}
                     />
                     <Text
                       style={[
@@ -400,35 +413,27 @@ export default function MapScreen() {
               </Pressable>
             </View>
 
-            {/* Travel Times & Status */}
             <View style={styles.routeInfoContainer}>
-              {/* Row 1: Times */}
               <View style={styles.travelTimesRow}>
-                {/* Walking */}
                 <View style={styles.travelTimeItem}>
                   <Ionicons name="walk" size={16} color={colors.textSecondary} />
                   <Text style={[styles.travelTimeText, { color: colors.text }]}>
                     {calculateWalkingTime(selectedPharmacy.distance_meters)}
                   </Text>
                 </View>
-                {/* Divider */}
                 <View style={[styles.verticalDivider, { backgroundColor: colors.border }]} />
-                {/* Driving */}
                 <View style={styles.travelTimeItem}>
                   <Ionicons name="car" size={16} color={colors.textSecondary} />
                   <Text style={[styles.travelTimeText, { color: colors.text }]}>
                     {calculateDrivingTime(selectedPharmacy.distance_meters)}
                   </Text>
                 </View>
-                {/* Divider */}
                 <View style={[styles.verticalDivider, { backgroundColor: colors.border }]} />
-                {/* Distance */}
                 <Text style={[styles.travelTimeText, { color: colors.textSecondary }]}>
                   {formatDistance(selectedPharmacy.distance_meters)}
                 </Text>
               </View>
 
-              {/* Row 2: Status */}
               <View style={styles.statusRow}>
                 {(() => {
                   const status = getPharmacyStatus(selectedPharmacy.duties, t);
@@ -444,7 +449,6 @@ export default function MapScreen() {
               </View>
             </View>
 
-            {/* Action Buttons */}
             <View style={styles.actionButtons}>
               <Pressable
                 style={({ pressed }) => [
@@ -472,10 +476,46 @@ export default function MapScreen() {
         </View>
       )}
 
+      <Modal
+        visible={showInfoPopup}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowInfoPopup(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setShowInfoPopup(false)}
+        >
+          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={styles.emptyMapOverlay}>
+            <Pressable onPress={(e) => e.stopPropagation()}>
+              <BlurView intensity={100} tint={isDark ? 'dark' : 'light'} style={styles.emptyMapCard}>
+                <View style={[styles.emptyIconCircle, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="medical" size={32} color={colors.primary} />
+                </View>
+                <Text style={[styles.emptyMapTitle, { color: colors.text }]}>
+                  Σχετικά με τα Φαρμακεία
+                </Text>
+                <Text style={[styles.emptyMapSubtitle, { color: colors.textSecondary }]}>
+                  Η εφαρμογή εμφανίζει τα εφημερεύοντα φαρμακεία και αυτά με διευρυμένο ωράριο. Κατά τις ώρες λειτουργίας των καταστημάτων, όλα τα φαρμακεία είναι ανοιχτά.
+                </Text>
 
+                <Pressable
+                  style={[styles.navButton, { backgroundColor: colors.primary, width: '100%' }]}
+                  onPress={() => setShowInfoPopup(false)}
+                >
+                  <Text style={styles.navButtonText}>Κατάλαβα</Text>
+                </Pressable>
+              </BlurView>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
+
+const isSmallDevice = () => false; // Dummy placeholder if needed, though I'll remove the usage or define it
 
 const styles = StyleSheet.create({
   container: {
@@ -595,7 +635,6 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 40,
   },
-  // Directions Preview Card Styles
   directionsCard: {
     borderRadius: 24,
     borderWidth: 1,
@@ -761,8 +800,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   radiusScroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: 8,
-    paddingRight: 16,
+    paddingHorizontal: 20,
   },
   radiusChip: {
     paddingHorizontal: 16,
@@ -791,5 +833,73 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 6,
+  },
+  emptyMapOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    zIndex: 1000,
+  },
+  emptyMapCard: {
+    width: '100%',
+    borderRadius: 32,
+    padding: 32,
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  emptyIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  emptyMapTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 12,
+    letterSpacing: -0.5,
+  },
+  emptyMapSubtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginBottom: 24,
+    letterSpacing: -0.2,
+  },
+  emptyMapTip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
+    gap: 10,
+  },
+  emptyMapTipText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  infoChip: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
   },
 });

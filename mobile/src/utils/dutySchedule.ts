@@ -91,9 +91,13 @@ export function isSlotActive(slot: DutySlot, currentMinutes?: number): boolean {
   const start = timeToMinutes(slot.start);
   const end = timeToMinutes(slot.end);
 
-  // Cross-midnight interval (e.g., 21:00 - 02:00)
-  if (end < start) {
-    // Open if current >= start (same day) OR current < end (next day morning)
+  // Check if slot spans across midnight
+  // 1. Explicit flag provided (new data format)
+  // 2. Implicit check: end time is smaller than start time
+  const crossesMidnight = slot.isOvernight || end < start;
+
+  if (crossesMidnight) {
+    // Open if current >= start (today) OR current < end (tomorrow)
     return current >= start || current < end;
   }
 
@@ -239,10 +243,16 @@ export function getPharmacyStatus(duties: DutySlot[], t?: (key: any) => string):
 
     // Calculate time until closing
     let minutesUntilClose: number;
-    if (end < timeToMinutes(currentSlot.start)) {
+
+    // Check for overnight/cross-midnight
+    const crossesMidnight = currentSlot.isOvernight || end < timeToMinutes(currentSlot.start);
+
+    if (crossesMidnight) {
       if (current >= timeToMinutes(currentSlot.start)) {
+        // We are before midnight
         minutesUntilClose = (24 * 60 - current) + end;
       } else {
+        // We are after midnight
         minutesUntilClose = end - current;
       }
     } else {
@@ -271,9 +281,12 @@ export function getPharmacyStatus(duties: DutySlot[], t?: (key: any) => string):
 
   if (nextOpening) {
     const prefix = translate(nextOpening.isTomorrow ? 'tomorrow_at' : 'today_at');
+    const relativeTime = formatTimeUntil(nextOpening.minutesUntil);
+    const inPrefix = translate('language') === 'el' ? 'σε' : 'in';
+
     return {
       isOpen: false,
-      statusText: `${prefix} ${nextOpening.opensAt}`,
+      statusText: `${prefix} ${nextOpening.opensAt} (${inPrefix} ${relativeTime})`,
       statusColor: 'error',
       currentSlot: null,
       nextOpening,
@@ -298,7 +311,7 @@ export function formatDutySlots(duties: DutySlot[]): string {
   return duties.map((slot) => {
     const end = timeToMinutes(slot.end);
     const start = timeToMinutes(slot.start);
-    const crossesMidnight = end < start;
+    const crossesMidnight = slot.isOvernight || end < start;
 
     return `${slot.start} - ${slot.end}${crossesMidnight ? ' (Επόμενης)' : ''}`;
   }).join('\n');

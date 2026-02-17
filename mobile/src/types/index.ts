@@ -2,6 +2,7 @@ export interface DutySlot {
   start: string;
   end: string;
   type: 'regular' | 'extended' | 'on_duty';
+  isOvernight?: boolean;
 }
 
 export interface PharmacyDuty {

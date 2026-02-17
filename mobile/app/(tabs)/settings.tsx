@@ -171,30 +171,6 @@ export default function SettingsScreen() {
         <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>{t('information')}</Text>
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <SettingsRow
-            icon="star"
-            iconColor="#FFB800"
-            iconBg="#FFF8E6"
-            label={t('rate_app')}
-            colors={colors}
-            showChevron
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-          />
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <SettingsRow
-            icon="share-social"
-            iconColor={colors.primary}
-            iconBg={colors.primaryLight}
-            label={t('share_app')}
-            colors={colors}
-            showChevron
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-          />
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <SettingsRow
             icon="chatbox-ellipses"
             iconColor="#10B981"
             iconBg="#D1FAE5"
@@ -204,19 +180,6 @@ export default function SettingsScreen() {
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               router.push('/feedback');
-            }}
-          />
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <SettingsRow
-            icon="mail"
-            iconColor="#5856D6"
-            iconBg="#EDEDFD"
-            label={t('contact_us')}
-            colors={colors}
-            showChevron
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              Linking.openURL('mailto:support@mypharma.gr');
             }}
           />
         </View>

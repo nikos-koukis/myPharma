@@ -32,8 +32,11 @@ export function PharmacyMap({
   const mapRef = useRef<MapView>(null);
   const [routeCoordinates, setRouteCoordinates] = React.useState<{ latitude: number; longitude: number }[]>([]);
 
-  // Calculate map delta based on radius
-  const getDelta = (r: number | null) => ((r || 5000) / 111_320) * 3.5;
+  const getDelta = (r: number | null) => {
+    // Initial zoom should be tight (e.g. 3-5km) even if search radius is large
+    const initialZoomRadius = 3000;
+    return (initialZoomRadius / 111_320) * 3.5;
+  };
 
   const initialRegion: Region = {
     latitude: userLat,
@@ -111,7 +114,7 @@ export function PharmacyMap({
           animated: true,
         });
       }
-    }, 1500);
+    }, 500); // Reduced delay for snappier feel
 
     return () => clearTimeout(timer);
   }, [selectedPharmacy, pharmacies, radius, isRefetching]);
