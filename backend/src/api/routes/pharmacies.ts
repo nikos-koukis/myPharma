@@ -31,8 +31,13 @@ export async function pharmacyRoutes(app: FastifyInstance) {
       return cached;
     }
 
+    // For overnight shifts, include both the requested date and next day's early morning
+    const requestedDate = new Date(dutyDate);
+    const nextDate = new Date(dutyDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+
     const where: Record<string, unknown> = {
-      duties: { some: { dutyDate: new Date(dutyDate) } },
+      duties: { some: { dutyDate: requestedDate } },
     };
     if (region) where.region = { contains: region, mode: 'insensitive' };
     if (city) where.city = city;
@@ -42,8 +47,11 @@ export async function pharmacyRoutes(app: FastifyInstance) {
       where,
       include: {
         duties: {
-          where: { dutyDate: new Date(dutyDate) },
+          where: {
+            dutyDate: { in: [requestedDate, nextDate] },
+          },
           select: { duties: true, dutyDate: true },
+          orderBy: { dutyDate: 'asc' },
         },
       },
       orderBy: { name: 'asc' },
@@ -51,9 +59,39 @@ export async function pharmacyRoutes(app: FastifyInstance) {
 
     console.log(`[api] DB result: ${pharmacies.length} pharmacies found`);
 
-    const result = deduplicatePharmacies(pharmacies);
-    if (result.length !== pharmacies.length) {
-      console.log(`[api] Deduplicated: ${pharmacies.length} -> ${result.length}`);
+    // Add overnight flag and merge shift info
+    const enriched = pharmacies.map((pharmacy) => {
+      const todayDuty = pharmacy.duties.find(d =>
+        new Date(d.dutyDate).toISOString().split('T')[0] === dutyDate
+      );
+      const tomorrowDuty = pharmacy.duties.find(d =>
+        new Date(d.dutyDate).toISOString().split('T')[0] === nextDate.toISOString().split('T')[0]
+      );
+
+      // Check if this is an overnight shift (today ends at 23:59 and tomorrow starts at 00:00)
+      const todayShift = (todayDuty?.duties as any[])?.[0];
+      const tomorrowShift = (tomorrowDuty?.duties as any[])?.[0];
+
+      const isOvernight = todayShift?.end === '23:59' && tomorrowShift?.start === '00:00';
+
+      return {
+        ...pharmacy,
+        isOvernight,
+        // If overnight, provide the full shift times for convenience
+        ...(isOvernight && {
+          overnightShift: {
+            start: todayShift.start,      // e.g., "21:00"
+            end: tomorrowShift.end,       // e.g., "08:00"
+            startDate: dutyDate,          // e.g., "2026-02-13"
+            endDate: nextDate.toISOString().split('T')[0], // e.g., "2026-02-14"
+          },
+        }),
+      };
+    });
+
+    const result = deduplicatePharmacies(enriched);
+    if (result.length !== enriched.length) {
+      console.log(`[api] Deduplicated: ${enriched.length} -> ${result.length}`);
     }
 
     await setCache(cacheKey, result);
@@ -194,10 +232,11 @@ export async function pharmacyRoutes(app: FastifyInstance) {
       include: {
         duties: {
           orderBy: { dutyDate: 'desc' },
-          take: 7, // Last 7 days of duties
         },
       },
     });
+
+    console.log(`[api] Duties found: ${pharmacy?.duties?.length ?? 0}`);
 
     if (!pharmacy) {
       reply.status(404);

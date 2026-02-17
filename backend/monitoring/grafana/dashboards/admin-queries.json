@@ -1,0 +1,761 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Pharmacy Search",
+      "type": "row"
+    },
+    {
+      "id": 1,
+      "title": "Search by Phone",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 1 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "id" },
+            "properties": [{ "id": "custom.width", "value": 320 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Google Maps" },
+            "properties": [
+              { "id": "links", "value": [{ "title": "Open Map", "url": "${__value.text}", "targetBlank": true }] }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["count"], "countRows": true }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT p.id, p.name, p.address, p.phone, p.city, p.region, p.lat, p.lng,\n  CASE WHEN p.lat IS NOT NULL THEN 'https://www.google.com/maps?q=' || p.lat || ',' || p.lng END AS \"Google Maps\",\n  pd.duty_date, pd.duties,\n  p.created_at, p.updated_at\nFROM pharmacies p\nLEFT JOIN pharmacy_duties pd ON pd.pharmacy_id = p.id AND pd.duty_date >= CURRENT_DATE\nWHERE p.phone LIKE '%${phone:raw}%'\nORDER BY p.name, pd.duty_date\nLIMIT 100",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Search by Name",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 9 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "id" },
+            "properties": [{ "id": "custom.width", "value": 320 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Google Maps" },
+            "properties": [
+              { "id": "links", "value": [{ "title": "Open Map", "url": "${__value.text}", "targetBlank": true }] }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["count"], "countRows": true }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT p.id, p.name, p.address, p.phone, p.city, p.region, p.lat, p.lng,\n  CASE WHEN p.lat IS NOT NULL THEN 'https://www.google.com/maps?q=' || p.lat || ',' || p.lng END AS \"Google Maps\",\n  pd.duty_date, pd.duties,\n  p.created_at, p.updated_at\nFROM pharmacies p\nLEFT JOIN pharmacy_duties pd ON pd.pharmacy_id = p.id AND pd.duty_date >= CURRENT_DATE\nWHERE LOWER(p.name) LIKE LOWER('%${pharmacy_name:raw}%')\nORDER BY p.name, pd.duty_date\nLIMIT 100",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Search by Address",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 17 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "id" },
+            "properties": [{ "id": "custom.width", "value": 320 }]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["count"], "countRows": true }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT p.id, p.name, p.address, p.phone, p.city, p.region, p.lat, p.lng,\n  pd.duty_date, pd.duties, p.created_at\nFROM pharmacies p\nLEFT JOIN pharmacy_duties pd ON pd.pharmacy_id = p.id AND pd.duty_date >= CURRENT_DATE\nWHERE LOWER(p.address) LIKE LOWER('%${address:raw}%')\nORDER BY p.address, pd.duty_date\nLIMIT 100",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Search by City",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 25 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["count"], "countRows": true }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT p.id, p.name, p.address, p.phone, p.city, p.region, p.lat, p.lng,\n  pd.duty_date, pd.duties\nFROM pharmacies p\nLEFT JOIN pharmacy_duties pd ON pd.pharmacy_id = p.id AND pd.duty_date >= CURRENT_DATE\nWHERE LOWER(p.city) LIKE LOWER('%${city_search:raw}%')\nORDER BY p.name, pd.duty_date\nLIMIT 200",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 33 },
+      "id": 101,
+      "title": "Data Quality",
+      "type": "row"
+    },
+    {
+      "id": 5,
+      "title": "Pharmacies Without Coordinates",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 34 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "id" },
+            "properties": [{ "id": "custom.width", "value": 320 }]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["count"], "countRows": true }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT id, name, address, phone, city, region, created_at\nFROM pharmacies\nWHERE lat IS NULL OR lng IS NULL\nORDER BY created_at DESC\nLIMIT 200",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Pharmacies Without Phone",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 42 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["count"], "countRows": true }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT id, name, address, city, region, lat, lng, created_at\nFROM pharmacies\nWHERE phone IS NULL OR phone = ''\nORDER BY created_at DESC\nLIMIT 200",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Duplicate Pharmacies (Same Name + Phone)",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 50 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["count"], "countRows": true }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT p1.id, p1.name, p1.address, p1.phone, p1.city, p1.region\nFROM pharmacies p1\nJOIN (\n  SELECT name, phone\n  FROM pharmacies\n  WHERE phone IS NOT NULL AND phone != ''\n  GROUP BY name, phone\n  HAVING COUNT(*) > 1\n) dup ON p1.name = dup.name AND p1.phone = dup.phone\nORDER BY p1.name, p1.phone\nLIMIT 200",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Coordinates Outside Greece",
+      "description": "Pharmacies with suspicious coordinates (not in Greece bounds)",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 58 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["count"], "countRows": true }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT id, name, address, city, lat, lng,\n  'https://www.google.com/maps?q=' || lat || ',' || lng AS \"Google Maps\"\nFROM pharmacies\nWHERE lat IS NOT NULL\n  AND (lat < 34.5 OR lat > 42.0 OR lng < 19.0 OR lng > 30.0)\nORDER BY name\nLIMIT 100",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 66 },
+      "id": 102,
+      "title": "Duty Schedules",
+      "type": "row"
+    },
+    {
+      "id": 9,
+      "title": "Today's On-Duty Pharmacies",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 67 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["count"], "countRows": true }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT p.name, p.address, p.phone, p.city, p.region, pd.duty_date, pd.duties\nFROM pharmacy_duties pd\nJOIN pharmacies p ON p.id = pd.pharmacy_id\nWHERE pd.duty_date = CURRENT_DATE\n  AND p.city LIKE '${duty_city:raw}'\nORDER BY p.city, p.name\nLIMIT 500",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Tomorrow's On-Duty Pharmacies",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 77 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["count"], "countRows": true }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT p.name, p.address, p.phone, p.city, p.region, pd.duty_date, pd.duties\nFROM pharmacy_duties pd\nJOIN pharmacies p ON p.id = pd.pharmacy_id\nWHERE pd.duty_date = CURRENT_DATE + 1\n  AND p.city LIKE '${duty_city:raw}'\nORDER BY p.city, p.name\nLIMIT 500",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Pharmacy Duty History",
+      "description": "Search duty history for a specific pharmacy",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 87 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["count"], "countRows": true }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT p.name, p.address, p.city, pd.duty_date, pd.duties, pd.scraped_at\nFROM pharmacy_duties pd\nJOIN pharmacies p ON p.id = pd.pharmacy_id\nWHERE LOWER(p.name) LIKE LOWER('%${pharmacy_name:raw}%')\nORDER BY pd.duty_date DESC\nLIMIT 100",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 95 },
+      "id": 103,
+      "title": "Statistics",
+      "type": "row"
+    },
+    {
+      "id": 12,
+      "title": "Pharmacies Per City",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 96 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["sum"], "fields": ["Count"] },
+        "sortBy": [{ "displayName": "Count", "desc": true }]
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT city AS \"City\", region AS \"Region\", COUNT(*) AS \"Count\"\nFROM pharmacies\nGROUP BY city, region\nORDER BY COUNT(*) DESC",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Pharmacies Per Region",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 96 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["sum"], "fields": ["Count"] },
+        "sortBy": [{ "displayName": "Count", "desc": true }]
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT region AS \"Region\", COUNT(*) AS \"Count\",\n  COUNT(*) FILTER (WHERE lat IS NOT NULL) AS \"With Coords\",\n  COUNT(*) FILTER (WHERE lat IS NULL) AS \"Missing Coords\"\nFROM pharmacies\nGROUP BY region\nORDER BY COUNT(*) DESC",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Duties Per Day (Last 30 Days)",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 106 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": false }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT duty_date AS \"Date\", COUNT(*) AS \"Pharmacies On Duty\"\nFROM pharmacy_duties\nWHERE duty_date >= CURRENT_DATE - 30\nGROUP BY duty_date\nORDER BY duty_date DESC",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Recently Added Pharmacies",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 106 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["count"], "countRows": true }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT name, address, phone, city, region, created_at\nFROM pharmacies\nORDER BY created_at DESC\nLIMIT 50",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 116 },
+      "id": 104,
+      "title": "Feedback",
+      "type": "row"
+    },
+    {
+      "id": 16,
+      "title": "User Feedback",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 117 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "type" },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": { "type": "color-background", "mode": "basic" }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "bug": { "color": "red" }, "feature": { "color": "blue" }, "pharmacy_error": { "color": "orange" }, "general": { "color": "green" } } }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "md",
+        "footer": { "show": true, "reducer": ["count"], "countRows": true }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "SELECT id, type, message, email, platform, app_version, pharmacy_id, created_at\nFROM feedback\nWHERE type LIKE '${feedback_type:raw}'\nORDER BY created_at DESC\nLIMIT 100",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 127 },
+      "id": 105,
+      "title": "Custom Query",
+      "type": "row"
+    },
+    {
+      "id": 17,
+      "title": "Custom SQL Query",
+      "description": "Enter any SQL query in the 'custom_sql' variable above",
+      "type": "table",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 128 },
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgresql"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["count"], "countRows": true }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgresql" },
+          "rawSql": "${custom_sql:raw}",
+          "format": "table",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["admin", "queries", "database"],
+  "templating": {
+    "list": [
+      {
+        "name": "phone",
+        "label": "Phone Number",
+        "type": "textbox",
+        "current": { "text": "", "value": "" },
+        "options": []
+      },
+      {
+        "name": "pharmacy_name",
+        "label": "Pharmacy Name",
+        "type": "textbox",
+        "current": { "text": "", "value": "" },
+        "options": []
+      },
+      {
+        "name": "address",
+        "label": "Address",
+        "type": "textbox",
+        "current": { "text": "", "value": "" },
+        "options": []
+      },
+      {
+        "name": "city_search",
+        "label": "City Search",
+        "type": "textbox",
+        "current": { "text": "", "value": "" },
+        "options": []
+      },
+      {
+        "name": "duty_city",
+        "label": "Duty City Filter",
+        "type": "query",
+        "datasource": { "type": "postgres", "uid": "postgresql" },
+        "query": "SELECT DISTINCT city FROM pharmacies ORDER BY city",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": "%",
+        "current": { "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "feedback_type",
+        "label": "Feedback Type",
+        "type": "custom",
+        "options": [
+          { "text": "All", "value": "%" },
+          { "text": "Bug", "value": "bug" },
+          { "text": "Feature", "value": "feature" },
+          { "text": "Pharmacy Error", "value": "pharmacy_error" },
+          { "text": "General", "value": "general" }
+        ],
+        "current": { "text": "All", "value": "%" },
+        "includeAll": false
+      },
+      {
+        "name": "custom_sql",
+        "label": "Custom SQL",
+        "type": "textbox",
+        "current": { "text": "SELECT * FROM pharmacies LIMIT 10", "value": "SELECT * FROM pharmacies LIMIT 10" },
+        "options": []
+      }
+    ]
+  },
+  "time": { "from": "now-7d", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Admin Queries",
+  "uid": "admin-queries",
+  "version": 1,
+  "weekStart": ""
+}

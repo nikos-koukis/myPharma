@@ -7,9 +7,8 @@ async function main() {
   // Start the API server
   await startServer();
 
-  // Daily: scrape pharmacies
   cron.schedule(config.scraper.pharmacyCron, async () => {
-    console.log('[cron] Running daily pharmacy scrape...');
+    console.log('[cron] Running pharmacy scrape...');
     try {
       await runScraper();
     } catch (err) {

@@ -35,8 +35,9 @@ export const config = {
   },
 
   scraper: {
-    pharmacyCron: '0 6 * * *',              // Daily at midnight
-    concurrency: 3,
+    pharmacyCron: '0 */4 * * *',             // Every 4 hours
+    //pharmacyCron: '40 13 * * *',  // 13:40 daily 
+    concurrency: 1,  // Sequential to avoid 429s
     timeout: 30000,
     retries: 3,
     baseUrl: 'https://www.xo.gr/efimerevonta-farmakeia',

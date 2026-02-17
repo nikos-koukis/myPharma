@@ -33,6 +33,13 @@ export const cacheMissesTotal = new client.Counter({
   labelNames: ['key_prefix'] as const,
 });
 
+// Scraper HTTP status codes
+export const scraperHttpStatusTotal = new client.Counter({
+  name: 'mypharma_scraper_http_status_total',
+  help: 'HTTP status codes from scraper requests',
+  labelNames: ['status_code'] as const,
+});
+
 // Scraper gauges
 export const scraperLastRunDuration = new client.Gauge({
   name: 'mypharma_scraper_last_run_duration_seconds',

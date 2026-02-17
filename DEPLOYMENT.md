@@ -236,9 +236,33 @@ docker compose -f ~/myPharma/backend/docker-compose.yml logs -f
 ```bash
 cd ~/myPharma/backend
 
-# Run pharmacy scraper (all cities)
+# Run pharmacy scraper (all configured prefectures)
 npm run scrape
 ```
+
+### Scraper Scripts
+
+```bash
+cd ~/myPharma/backend
+
+# List all 41 Greek prefectures (discovered dynamically from xo.gr)
+npx tsx src/scripts/scrape-region.ts --list
+
+# Scrape a single prefecture (by Greek name or slug)
+npx tsx src/scripts/scrape-region.ts achaias
+npx tsx src/scripts/scrape-region.ts Αχαΐας
+npx tsx src/scripts/scrape-region.ts thessalonikis
+npx tsx src/scripts/scrape-region.ts Αττικής
+
+# Scrape using env filter (for production cron)
+SCRAPE_PREFECTURES=Αχαΐας npm run scrape
+SCRAPE_PREFECTURES=Αχαΐας,Αττικής npm run scrape
+```
+
+The scraper dynamically discovers:
+1. All prefectures from the main xo.gr page
+2. All cities within each prefecture
+3. Pharmacy duty hours for today and tomorrow
 
 ### Database
 
@@ -297,9 +321,15 @@ The application runs a cron job automatically via `node-cron`:
 
 | Schedule | Job | Description |
 |----------|-----|-------------|
-| `0 6 * * *` | Pharmacy scrape | Daily at 6:00 AM — scrapes all cities from vrisko.gr |
+| `0 7 * * *` | Pharmacy scrape | Daily at 7:00 AM — scrapes all configured prefectures from xo.gr |
 
 Runs inside the Node.js process managed by PM2. No system crontab needed.
+
+To limit which prefectures are scraped, set `SCRAPE_PREFECTURES` in `.env`:
+```bash
+# Scrape only specific prefectures (comma-separated)
+SCRAPE_PREFECTURES=Αχαΐας,Αττικής
+```
 
 ---
 
@@ -337,7 +367,7 @@ crontab -e
 | Port 3000 in use | `pm2 delete all && pm2 start dist/index.js --name mypharma` |
 | DB connection refused | `docker ps` — check if postgres is running |
 | Redis empty after restart | Normal — cache rebuilds on next API request |
-| Scraper timeout | Check server internet: `curl -I https://www.vrisko.gr` |
+| Scraper timeout | Check server internet: `curl -I https://www.xo.gr` |
 | Out of memory | Upgrade to CX32 or add swap: `fallocate -l 2G /swapfile` |
 | SSL cert expired | `certbot renew` |
 | Nginx 502 Bad Gateway | App crashed — `pm2 restart mypharma` |
