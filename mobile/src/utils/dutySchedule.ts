@@ -94,7 +94,7 @@ export function isSlotActive(slot: DutySlot, currentMinutes?: number): boolean {
   // Check if slot spans across midnight
   // 1. Explicit flag provided (new data format)
   // 2. Implicit check: end time is smaller than start time
-  const crossesMidnight = slot.isOvernight || end < start;
+  const crossesMidnight = slot.isOvernight || end <= start;
 
   if (crossesMidnight) {
     // Open if current >= start (today) OR current < end (tomorrow)
@@ -245,7 +245,7 @@ export function getPharmacyStatus(duties: DutySlot[], t?: (key: any) => string):
     let minutesUntilClose: number;
 
     // Check for overnight/cross-midnight
-    const crossesMidnight = currentSlot.isOvernight || end < timeToMinutes(currentSlot.start);
+    const crossesMidnight = currentSlot.isOvernight || end <= timeToMinutes(currentSlot.start);
 
     if (crossesMidnight) {
       if (current >= timeToMinutes(currentSlot.start)) {
@@ -311,7 +311,7 @@ export function formatDutySlots(duties: DutySlot[]): string {
   return duties.map((slot) => {
     const end = timeToMinutes(slot.end);
     const start = timeToMinutes(slot.start);
-    const crossesMidnight = slot.isOvernight || end < start;
+    const crossesMidnight = slot.isOvernight || end <= start;
 
     return `${slot.start} - ${slot.end}${crossesMidnight ? ' (Επόμενης)' : ''}`;
   }).join('\n');
