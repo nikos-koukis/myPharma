@@ -362,6 +362,29 @@ body {
   transform: translateY(-3px);
 }
 
+.btn-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+  position: relative;
+}
+
+.btn-disabled:hover {
+  transform: none;
+}
+
+.coming-soon-badge {
+  background: var(--primary);
+  color: #0a0f1a;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 100px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-left: 0.25rem;
+}
+
 .hero-stats {
   display: flex;
   gap: 3rem;

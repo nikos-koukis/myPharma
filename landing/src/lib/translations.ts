@@ -4,13 +4,14 @@ export const translations = {
             download: "Κατέβασε Δωρεάν",
         },
         hero: {
-            badge: "Διαθέσιμο σε iOS & Android",
+            badge: "Διαθέσιμο σε iOS",
             title: "Βρες φαρμακεία",
             titleHighlight: "αμέσως",
             titleEnd: "στην Ελλάδα",
             desc: "Εφημερεύοντα φαρμακεία σε πραγματικό χρόνο με έξυπνη πλοήγηση, διαδραστικούς χάρτες και υποστήριξη έκτακτης ανάγκης. Δωρεάν για πάντα.",
             appStore: "App Store",
             playStore: "Google Play",
+            comingSoon: "Σύντομα",
             stats: {
                 pharmacies: "Φαρμακεία",
                 downloads: "Λήψεις",
@@ -59,6 +60,7 @@ export const translations = {
             desc: "Κατέβασε το PharmaGo τώρα και μη ψάχνεις ξανά για ανοιχτό φαρμακείο. Είναι δωρεάν, γρήγορο και σέβεται την ιδιωτικότητά σου.",
             ios: "Κατέβασε για iOS",
             android: "Κατέβασε για Android",
+            comingSoon: "Σύντομα",
         },
         footer: {
             privacy: "Απόρρητο",
@@ -72,13 +74,14 @@ export const translations = {
             download: "Download Free",
         },
         hero: {
-            badge: "Available on iOS & Android",
+            badge: "Available on iOS",
             title: "Find pharmacies",
             titleHighlight: "instantly",
             titleEnd: "in Greece",
             desc: "Real-time on-duty pharmacy finder with smart navigation, interactive maps, and emergency support. Free forever.",
             appStore: "App Store",
             playStore: "Google Play",
+            comingSoon: "Coming Soon",
             stats: {
                 pharmacies: "Pharmacies",
                 downloads: "Downloads",
@@ -127,6 +130,7 @@ export const translations = {
             desc: "Download PharmaGo now and never struggle to find an open pharmacy again. It's free, fast, and respects your privacy.",
             ios: "Download for iOS",
             android: "Download for Android",
+            comingSoon: "Coming Soon",
         },
         footer: {
             privacy: "Privacy",

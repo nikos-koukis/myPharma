@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const inter = Inter({
@@ -129,8 +130,8 @@ export const metadata: Metadata = {
   // App Links
   appLinks: {
     ios: {
-      url: 'https://apps.apple.com/app/pharmago',
-      app_store_id: 'YOUR_APP_STORE_ID',
+      url: 'https://apps.apple.com/us/app/pharmago-%CE%B5%CF%86%CE%B7%CE%BC%CE%B5%CF%81%CE%AF%CE%B5%CF%82-%CF%86%CE%B1%CF%81%CE%BC%CE%B1%CE%BA%CE%B5%CE%AF%CF%89%CE%BD/id6758830879',
+      app_store_id: '6758830879',
     },
     android: {
       package: 'gr.pharmago.app',
@@ -191,7 +192,7 @@ const jsonLd = {
         worstRating: '1',
       },
       downloadUrl: [
-        'https://apps.apple.com/app/pharmago',
+        'https://apps.apple.com/us/app/pharmago-%CE%B5%CF%86%CE%B7%CE%BC%CE%B5%CF%81%CE%AF%CE%B5%CF%82-%CF%86%CE%B1%CF%81%CE%BC%CE%B1%CE%BA%CE%B5%CE%AF%CF%89%CE%BD/id6758830879',
         'https://play.google.com/store/apps/details?id=gr.pharmago.app',
       ],
       screenshot: 'https://pharmago.gr/app-screenshot.png',
@@ -303,6 +304,20 @@ export default function RootLayout({
   return (
     <html lang="el" className={inter.className}>
       <head>
+        {/* Google Analytics */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-42J4ETMBTJ"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-42J4ETMBTJ');
+          `}
+        </Script>
+
         {/* JSON-LD Structured Data */}
         <script
           type="application/ld+json"
@@ -327,7 +342,7 @@ export default function RootLayout({
         <meta name="language" content="Greek, English" />
 
         {/* Mobile App Meta Tags */}
-        <meta name="apple-itunes-app" content="app-id=YOUR_APP_STORE_ID" />
+        <meta name="apple-itunes-app" content="app-id=6758830879" />
         <meta name="google-play-app" content="app-id=gr.pharmago.app" />
 
         {/* Additional SEO Meta */}
