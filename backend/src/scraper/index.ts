@@ -340,17 +340,26 @@ async function savePharmacy(data: PharmacyData): Promise<number> {
       });
     }
 
-    // Geocode if missing coordinates
-    if (pharmacy.lat === null || pharmacy.lng === null) {
-      const coords = await geocodeAddress(data.address, data.city);
-      if (coords) {
+    // Always geocode and check for coordinate changes
+    const coords = await geocodeAddress(data.address, data.city);
+    if (coords) {
+      const hasCoords = pharmacy.lat !== null && pharmacy.lng !== null;
+      const coordsChanged = hasCoords && (
+        Math.abs(pharmacy.lat! - coords.lat) > 0.0001 ||
+        Math.abs(pharmacy.lng! - coords.lng) > 0.0001
+      );
+
+      if (!hasCoords || coordsChanged) {
+        if (coordsChanged) {
+          console.log(`[geo] Coordinates changed for ${pharmacy.name}: (${pharmacy.lat}, ${pharmacy.lng}) → (${coords.lat}, ${coords.lng})`);
+        }
         await prisma.pharmacy.update({
           where: { id: pharmacy.id },
           data: { lat: coords.lat, lng: coords.lng },
         });
       }
-      await sleep(config.geocoder.rateLimit);
     }
+    await sleep(config.geocoder.rateLimit);
 
     // Check if this is an overnight shift (end hour < start hour)
     // If so, create TWO duty records: one for today, one for tomorrow

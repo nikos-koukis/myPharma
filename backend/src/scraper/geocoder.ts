@@ -5,40 +5,35 @@ interface GeoResult {
   lng: number;
 }
 
+/**
+ * Clean address to extract just street + number
+ * "Τρικούπη Χαρίλαου 33, Άνω Τριανδρια, 55337 Τριανδρία" → "Τρικούπη Χαρίλαου 33"
+ */
+function cleanAddress(address: string): string {
+  // Take only the first part before comma (street + number)
+  const streetPart = address.split(',')[0].trim();
+  // Remove intersection part if present (e.g., "& Εξάρχη Λάζου")
+  return streetPart.split('&')[0].trim();
+}
+
+/**
+ * Clean city name to remove parentheses content
+ * "Άνω Τριανδρια (Τριανδρία Θεσσαλονίκης)" → "Άνω Τριανδρια"
+ */
+function cleanCity(city: string): string {
+  return city.replace(/\s*\([^)]*\)/g, '').trim();
+}
+
 export async function geocodeAddress(address: string, city: string): Promise<GeoResult | null> {
-  const query = `${address}, ${city}, Greece`;
-
-  // Try Nominatim first (free)
-  let result = await geocodeNominatim(query);
-
-  // Fallback to Geoapify if Nominatim fails and API key is set
-  if (!result && config.geocoder.apiKey) {
-    result = await geocodeGeoapify(query);
+  if (!config.geocoder.apiKey) {
+    console.warn('[geo] No Geoapify API key configured');
+    return null;
   }
 
-  if (result) {
-    console.log(`[geo] ${city}: ${result.lat.toFixed(4)}, ${result.lng.toFixed(4)}`);
-  }
+  const cleanedAddress = cleanAddress(address);
+  const cleanedCity = cleanCity(city);
+  const query = `${cleanedAddress}, ${cleanedCity}, Greece`;
 
-  return result;
-}
-
-async function geocodeNominatim(query: string): Promise<GeoResult | null> {
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
-
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'myPharma/1.0' },
-  });
-
-  if (!res.ok) return null;
-
-  const data = await res.json() as Array<{ lat: string; lon: string }>;
-  if (data.length === 0) return null;
-
-  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-}
-
-async function geocodeGeoapify(query: string): Promise<GeoResult | null> {
   const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(query)}&apiKey=${config.geocoder.apiKey}`;
 
   const res = await fetch(url);
@@ -50,7 +45,10 @@ async function geocodeGeoapify(query: string): Promise<GeoResult | null> {
   if (data.features.length === 0) return null;
 
   const props = data.features[0].properties;
-  return { lat: props.lat, lng: props.lon };
+  const result = { lat: props.lat, lng: props.lon };
+
+  console.log(`[geo] ${cleanedCity}: ${result.lat.toFixed(4)}, ${result.lng.toFixed(4)}`);
+  return result;
 }
 
 export async function sleep(ms: number): Promise<void> {
