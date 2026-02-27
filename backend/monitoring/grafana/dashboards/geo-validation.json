@@ -1,0 +1,459 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Summary",
+      "type": "row"
+    },
+    {
+      "id": 1,
+      "title": "Total Pharmacies",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgresql" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgresql" },
+        "rawSql": "SELECT COUNT(*) AS \"Total\" FROM geo_validations",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 2,
+      "title": "Valid Coordinates",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgresql" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgresql" },
+        "rawSql": "SELECT COUNT(*) AS \"Valid\" FROM geo_validations WHERE is_valid = true",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 3,
+      "title": "Invalid Coordinates",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgresql" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 1 },
+            { "color": "red", "value": 10 }
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgresql" },
+        "rawSql": "SELECT COUNT(*) AS \"Invalid\" FROM geo_validations WHERE is_valid = false",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 4,
+      "title": "Validity Rate",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "datasource": { "type": "postgres", "uid": "postgresql" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 90 },
+            { "color": "green", "value": 98 }
+          ]},
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgresql" },
+        "rawSql": "SELECT ROUND(100.0 * SUM(CASE WHEN is_valid THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) AS \"Rate\" FROM geo_validations",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 5,
+      "title": "Last Validation",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 5 },
+      "datasource": { "type": "postgres", "uid": "postgresql" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgresql" },
+        "rawSql": "SELECT MAX(validated_at) AS \"Last Run\" FROM geo_validations",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 6,
+      "title": "Issues Breakdown",
+      "type": "piechart",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 5 },
+      "datasource": { "type": "postgres", "uid": "postgresql" },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "values": true, "calcs": ["lastNotNull"], "fields": "" },
+        "legend": { "displayMode": "list", "placement": "right" },
+        "pieType": "pie",
+        "tooltip": { "mode": "single" }
+      },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgresql" },
+        "rawSql": "SELECT COALESCE(issue, 'Valid') AS \"Issue\", COUNT(*) AS \"Count\"\nFROM geo_validations\nGROUP BY issue\nORDER BY COUNT(*) DESC",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 7,
+      "title": "Invalid by Region",
+      "type": "bargauge",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 5 },
+      "datasource": { "type": "postgres", "uid": "postgresql" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 5 },
+            { "color": "red", "value": 10 }
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "values": true, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgresql" },
+        "rawSql": "SELECT region AS \"Region\", COUNT(*) AS \"Invalid\"\nFROM geo_validations\nWHERE is_valid = false\nGROUP BY region\nORDER BY COUNT(*) DESC\nLIMIT 10",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 11 },
+      "id": 101,
+      "title": "Invalid Coordinates",
+      "type": "row"
+    },
+    {
+      "id": 10,
+      "title": "Invalid Coordinates Table",
+      "description": "Pharmacies with coordinates that don't match their address",
+      "type": "table",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 12 },
+      "datasource": { "type": "postgres", "uid": "postgresql" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "pharmacy_id" },
+            "properties": [{ "id": "custom.width", "value": 80 }, { "id": "custom.hidden", "value": true }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "distance_km" },
+            "properties": [
+              { "id": "custom.width", "value": 100 },
+              { "id": "unit", "value": "km" },
+              { "id": "decimals", "value": 2 },
+              { "id": "color", "value": { "mode": "thresholds" } },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [
+                { "color": "yellow", "value": null },
+                { "color": "orange", "value": 5 },
+                { "color": "red", "value": 50 }
+              ]}}
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Current Map" },
+            "properties": [
+              { "id": "links", "value": [{ "title": "Open Current Location", "url": "${__value.text}", "targetBlank": true }] }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Expected Map" },
+            "properties": [
+              { "id": "links", "value": [{ "title": "Open Expected Location", "url": "${__value.text}", "targetBlank": true }] }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["count"], "countRows": true },
+        "sortBy": [{ "displayName": "distance_km", "desc": true }]
+      },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgresql" },
+        "rawSql": "SELECT \n  pharmacy_name AS \"Pharmacy\",\n  address AS \"Address\",\n  city AS \"City\",\n  region AS \"Region\",\n  distance_km,\n  issue AS \"Issue\",\n  ROUND(current_lat::numeric, 4) AS \"Current Lat\",\n  ROUND(current_lng::numeric, 4) AS \"Current Lng\",\n  ROUND(expected_lat::numeric, 4) AS \"Expected Lat\",\n  ROUND(expected_lng::numeric, 4) AS \"Expected Lng\",\n  CASE WHEN current_lat IS NOT NULL THEN 'https://www.google.com/maps?q=' || current_lat || ',' || current_lng END AS \"Current Map\",\n  CASE WHEN expected_lat IS NOT NULL THEN 'https://www.google.com/maps?q=' || expected_lat || ',' || expected_lng END AS \"Expected Map\",\n  pharmacy_id\nFROM geo_validations\nWHERE is_valid = false\n  AND ($region = 'All' OR region LIKE '%' || $region || '%')\nORDER BY distance_km DESC NULLS LAST\nLIMIT 200",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+      "id": 102,
+      "title": "Region Analysis",
+      "type": "row"
+    },
+    {
+      "id": 11,
+      "title": "Validation Status by Region",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 25 },
+      "datasource": { "type": "postgres", "uid": "postgresql" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Invalid" },
+            "properties": [
+              { "id": "color", "value": { "mode": "thresholds" } },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 1 },
+                { "color": "red", "value": 5 }
+              ]}},
+              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Rate %" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "decimals", "value": 1 },
+              { "id": "color", "value": { "mode": "thresholds" } },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [
+                { "color": "red", "value": null },
+                { "color": "yellow", "value": 90 },
+                { "color": "green", "value": 98 }
+              ]}},
+              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": true, "reducer": ["sum"], "fields": ["Total", "Valid", "Invalid"] },
+        "sortBy": [{ "displayName": "Invalid", "desc": true }]
+      },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgresql" },
+        "rawSql": "SELECT \n  region AS \"Region\",\n  COUNT(*) AS \"Total\",\n  SUM(CASE WHEN is_valid THEN 1 ELSE 0 END) AS \"Valid\",\n  SUM(CASE WHEN NOT is_valid THEN 1 ELSE 0 END) AS \"Invalid\",\n  ROUND(100.0 * SUM(CASE WHEN is_valid THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) AS \"Rate %\"\nFROM geo_validations\nGROUP BY region\nORDER BY SUM(CASE WHEN NOT is_valid THEN 1 ELSE 0 END) DESC",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 35 },
+      "id": 103,
+      "title": "Distance Analysis",
+      "type": "row"
+    },
+    {
+      "id": 12,
+      "title": "Distance Distribution (Invalid Only)",
+      "type": "histogram",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
+      "datasource": { "type": "postgres", "uid": "postgresql" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "bucketSize": 10,
+        "combine": false
+      },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgresql" },
+        "rawSql": "SELECT distance_km AS \"Distance (km)\"\nFROM geo_validations\nWHERE is_valid = false AND distance_km IS NOT NULL\nORDER BY distance_km",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 13,
+      "title": "Top 10 Largest Distances",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
+      "datasource": { "type": "postgres", "uid": "postgresql" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Distance" },
+            "properties": [
+              { "id": "unit", "value": "km" },
+              { "id": "decimals", "value": 1 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Map" },
+            "properties": [
+              { "id": "links", "value": [{ "title": "Compare Locations", "url": "${__value.text}", "targetBlank": true }] }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": false }
+      },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "postgresql" },
+        "rawSql": "SELECT \n  pharmacy_name AS \"Pharmacy\",\n  city AS \"City\",\n  region AS \"Region\",\n  distance_km AS \"Distance\",\n  'https://www.google.com/maps/dir/' || current_lat || ',' || current_lng || '/' || expected_lat || ',' || expected_lng AS \"Map\"\nFROM geo_validations\nWHERE is_valid = false AND distance_km IS NOT NULL\nORDER BY distance_km DESC\nLIMIT 10",
+        "format": "table",
+        "rawQuery": true,
+        "refId": "A"
+      }]
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["geo", "validation", "coordinates", "quality"],
+  "templating": {
+    "list": [
+      {
+        "name": "region",
+        "label": "Region Filter",
+        "type": "query",
+        "datasource": { "type": "postgres", "uid": "postgresql" },
+        "query": "SELECT DISTINCT region FROM geo_validations ORDER BY region",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": "All",
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "time": { "from": "now-7d", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Geo Validation",
+  "uid": "geo-validation",
+  "version": 1,
+  "weekStart": ""
+}

@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { startServer } from './api/server';
 import { runScraper } from './scraper';
+import { runCoordValidation } from './scraper/coord-validator';
 import { config } from './config';
 
 async function main() {
@@ -11,6 +12,10 @@ async function main() {
     console.log('[cron] Running pharmacy scrape...');
     try {
       await runScraper();
+
+      // Run coordinate validation after scraping
+      console.log('[cron] Running coordinate validation...');
+      await runCoordValidation({ thresholdKm: 1.0 });
     } catch (err) {
       console.error('[cron] Pharmacy scrape failed:', err);
     }

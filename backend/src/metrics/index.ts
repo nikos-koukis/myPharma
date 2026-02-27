@@ -63,4 +63,25 @@ export const feedbackTotal = new client.Counter({
   labelNames: ['type', 'platform'] as const,
 });
 
+// Coordinate validation metrics
+export const geoValidationTotal = new client.Gauge({
+  name: 'mypharma_geo_validation_total',
+  help: 'Total pharmacies validated',
+});
+
+export const geoValidationValid = new client.Gauge({
+  name: 'mypharma_geo_validation_valid',
+  help: 'Number of pharmacies with valid coordinates',
+});
+
+export const geoValidationInvalid = new client.Gauge({
+  name: 'mypharma_geo_validation_invalid',
+  help: 'Number of pharmacies with invalid coordinates',
+});
+
+export const geoValidationLastRun = new client.Gauge({
+  name: 'mypharma_geo_validation_last_run_timestamp',
+  help: 'Unix timestamp of last validation run',
+});
+
 export { client };
