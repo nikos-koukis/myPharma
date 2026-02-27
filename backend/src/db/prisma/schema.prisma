@@ -100,3 +100,33 @@ model Feedback {
   @@index([createdAt])
   @@map("feedback")
 }
+
+model GeoValidation {
+  id           String   @id @default(uuid())
+  pharmacyId   String   @map("pharmacy_id")
+  pharmacyName String   @map("pharmacy_name")
+  address      String
+  city         String
+  region       String
+
+  // Current coordinates in DB
+  currentLat   Float?   @map("current_lat")
+  currentLng   Float?   @map("current_lng")
+
+  // Expected coordinates from geocoder
+  expectedLat  Float?   @map("expected_lat")
+  expectedLng  Float?   @map("expected_lng")
+
+  // Validation results
+  distanceKm   Float?   @map("distance_km")  // Distance between current and expected
+  isValid      Boolean  @map("is_valid")     // true if distance < threshold
+  issue        String?                        // Description of the issue
+
+  validatedAt  DateTime @default(now()) @map("validated_at")
+
+  @@index([isValid])
+  @@index([distanceKm])
+  @@index([region])
+  @@index([validatedAt])
+  @@map("geo_validations")
+}

@@ -12,7 +12,8 @@
     "db:migrate": "prisma migrate dev --schema=src/db/prisma/schema.prisma",
     "db:push": "prisma db push --schema=src/db/prisma/schema.prisma",
     "db:reset": "prisma db push --force-reset --schema=src/db/prisma/schema.prisma",
-    "db:studio": "prisma studio --schema=src/db/prisma/schema.prisma"
+    "db:studio": "prisma studio --schema=src/db/prisma/schema.prisma",
+    "validate:coords": "tsx src/scripts/validate-coords.ts"
   },
   "keywords": [],
   "author": "",
