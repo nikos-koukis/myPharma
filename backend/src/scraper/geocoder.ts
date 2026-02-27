@@ -17,6 +17,16 @@ function cleanAddress(address: string): string {
 }
 
 /**
+ * Extract main city from address using postal code pattern
+ * "Αγίας Σοφίας 54, Αγία Σοφία, 26223 Πάτρα Αχαΐας" → "Πάτρα"
+ */
+function extractMainCity(address: string): string | null {
+  // Match postal code followed by city name (5 digits + space + Greek word)
+  const match = address.match(/\d{5}\s+([^\s,]+)/);
+  return match ? match[1] : null;
+}
+
+/**
  * Clean city name to remove parentheses content
  * "Άνω Τριανδρια (Τριανδρία Θεσσαλονίκης)" → "Άνω Τριανδρια"
  */
@@ -31,7 +41,10 @@ export async function geocodeAddress(address: string, city: string): Promise<Geo
   }
 
   const cleanedAddress = cleanAddress(address);
-  const cleanedCity = cleanCity(city);
+  // Try to extract main city from address (e.g., "26223 Πάτρα" → "Πάτρα")
+  // This helps disambiguate neighborhoods like "Αγία Σοφία" that exist in multiple cities
+  const mainCity = extractMainCity(address);
+  const cleanedCity = mainCity || cleanCity(city);
   const query = `${cleanedAddress}, ${cleanedCity}, Greece`;
 
   const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(query)}&apiKey=${config.geocoder.apiKey}`;
