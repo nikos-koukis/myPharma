@@ -21,7 +21,8 @@ export interface FetchResult {
 }
 
 // Docker image for curl-impersonate Chrome variant (macOS only)
-const DOCKER_IMAGE = 'lwthiker/curl-impersonate:0.6-chrome';
+// Version 0.7.1 has improved TLS fingerprints for Chrome 116+
+const DOCKER_IMAGE = 'lwthiker/curl-impersonate:0.7.1-chrome';
 const IS_LINUX = platform() === 'linux';
 
 // Cookie persistence for human-like behavior
@@ -92,22 +93,58 @@ function getCookieString(): string {
 // VPN interface - set VPN_INTERFACE env var (e.g., 'tun0') to route through VPN
 const VPN_INTERFACE: string | null = process.env.VPN_INTERFACE || null;
 
-// Randomization options to avoid detection
-const CHROME_VERSIONS = ['curl_chrome116', 'curl_chrome110', 'curl_chrome107', 'curl_chrome104'];
+// ===== ANTI-DETECTION RANDOMIZATION =====
+
+// More Chrome versions for TLS fingerprint variety (0.7.1 supports these)
+const CHROME_VERSIONS = [
+  'curl_chrome119',         // Newest in 0.7.1
+  'curl_chrome116',
+  'curl_chrome110',
+  'curl_chrome107',
+  'curl_chrome104',
+  'curl_chrome99_android',  // Mobile fingerprint variety
+];
 
 const ACCEPT_LANGUAGES = [
   'el-GR,el;q=0.9,en;q=0.8',
   'el-GR,el;q=0.9,en-US;q=0.8,en;q=0.7',
   'el,en-US;q=0.9,en;q=0.8',
   'el-GR,el;q=0.8,en-GB;q=0.6,en;q=0.4',
+  'el-GR,el;q=0.9,en-GB;q=0.8,en;q=0.7',
+  'en-US,en;q=0.9,el;q=0.8',  // English primary sometimes
 ];
 
 const REFERERS = [
   'https://www.google.com/',
   'https://www.google.gr/',
+  'https://www.google.com/search?q=efimerevonta+farmakeia',
   'https://www.xo.gr/',
-  null, // No referer sometimes
+  'https://www.xo.gr/efimerevonta-farmakeia/',
+  null, // No referer (direct navigation)
+  null, // Increase chance of no referer
 ];
+
+// Additional randomization: Accept-Encoding variations
+const ACCEPT_ENCODINGS = [
+  'gzip, deflate, br',
+  'gzip, deflate',
+  'gzip, deflate, br, zstd',
+  'br, gzip, deflate',
+];
+
+// Sec-CH-UA variations (browser hints) - must match CHROME_VERSIONS
+const SEC_CH_UA = [
+  '"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
+  '"Chromium";v="116", "Not)A;Brand";v="24", "Google Chrome";v="116"',
+  '"Chromium";v="110", "Not A(Brand";v="24", "Google Chrome";v="110"',
+  '"Google Chrome";v="107", "Chromium";v="107", "Not=A?Brand";v="24"',
+  '"Chromium";v="104", "Google Chrome";v="104", "Not A;Brand";v="99"',
+];
+
+// Track requests for human-like pause pattern
+let requestsSinceBreak = 0;
+const REQUESTS_BEFORE_BREAK_MIN = 15;
+const REQUESTS_BEFORE_BREAK_MAX = 35;
 
 function randomElement<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -120,10 +157,13 @@ function buildCommand(url: string, useProxy: boolean, includeCookies: boolean): 
   const proxyUrl = config.scraper.proxyUrl;
   const timeout = Math.floor(config.scraper.timeout / 1000);
 
-  // Randomize Chrome version for each request
+  // Randomize everything for each request
   const curlBin = randomElement(CHROME_VERSIONS);
   const acceptLang = randomElement(ACCEPT_LANGUAGES);
   const referer = randomElement(REFERERS);
+  const acceptEncoding = randomElement(ACCEPT_ENCODINGS);
+  const secChUa = randomElement(SEC_CH_UA);
+  const isMobile = curlBin.includes('android');
 
   const curlArgs = [
     '-s',                    // Silent
@@ -132,10 +172,12 @@ function buildCommand(url: string, useProxy: boolean, includeCookies: boolean): 
     `-m ${timeout}`,         // Max time
     '-w "\\n%{http_code}"',  // Output status code at end
     `-H "accept-language: ${acceptLang}"`,
+    `-H "accept-encoding: ${acceptEncoding}"`,
     '-H "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"',
     '-H "cache-control: max-age=0"',
-    '-H "sec-ch-ua-mobile: ?0"',
-    '-H "sec-ch-ua-platform: \\"Windows\\""',
+    `-H "sec-ch-ua: ${secChUa}"`,
+    `-H "sec-ch-ua-mobile: ${isMobile ? '?1' : '?0'}"`,
+    `-H "sec-ch-ua-platform: \\"${isMobile ? 'Android' : 'Windows'}\\""`,
     '-H "upgrade-insecure-requests: 1"',
   ];
 
@@ -251,6 +293,24 @@ function getBackoffDelay(attempt: number, baseMs: number = 2000): number {
 }
 
 /**
+ * Check if we should take a human-like break (occasional longer pause)
+ */
+function shouldTakeBreak(): boolean {
+  const threshold = randomInt(REQUESTS_BEFORE_BREAK_MIN, REQUESTS_BEFORE_BREAK_MAX);
+  return requestsSinceBreak >= threshold;
+}
+
+/**
+ * Take a human-like break (5-15 seconds)
+ */
+async function takeHumanBreak(): Promise<void> {
+  const breakDuration = randomInt(5000, 15000);
+  console.log(`[fetch] Taking human-like break for ${Math.round(breakDuration / 1000)}s...`);
+  await sleep(breakDuration);
+  requestsSinceBreak = 0;
+}
+
+/**
  * Fetch a page using curl-impersonate with exponential backoff retry
  * @param url - URL to fetch
  * @param maxRetries - Maximum number of retries (default from config)
@@ -258,6 +318,12 @@ function getBackoffDelay(attempt: number, baseMs: number = 2000): number {
 export async function fetchPage(url: string, maxRetries: number = config.scraper.retries): Promise<FetchResult> {
   // Extract city slug for logging
   const slug = url.match(/farmakeia\/([^/?]+)/)?.[1] || url;
+
+  // Human-like break: occasionally pause for longer (like getting distracted)
+  if (shouldTakeBreak()) {
+    await takeHumanBreak();
+  }
+  requestsSinceBreak++;
 
   // Check if we should refresh cookies
   if (shouldRefreshCookies()) {

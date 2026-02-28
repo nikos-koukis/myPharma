@@ -23,6 +23,19 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 /**
+ * Shuffle array in place using Fisher-Yates algorithm
+ * This prevents scraping cities from the same prefecture consecutively (anti-detection)
+ */
+function shuffle<T>(arr: T[]): T[] {
+  const result = [...arr];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+/**
  * Get randomized delay with jitter (1x to 1.5x base delay)
  */
 function getRandomDelay(baseMs: number): number {
@@ -151,10 +164,14 @@ export async function runScraper(): Promise<void> {
 
   try {
     // ===== PARALLEL CITY SCRAPING WITH PROGRESS =====
-    const cityBatches = chunk(allCities, config.scraper.concurrency);
+    // Shuffle cities to avoid scraping same prefecture consecutively (anti-detection)
+    const shuffledCities = shuffle(allCities);
+    console.log(`[scraper] Cities shuffled for anti-detection`);
+
+    const cityBatches = chunk(shuffledCities, config.scraper.concurrency);
     const totalBatches = cityBatches.length;
 
-    console.log(`[scraper] Starting city scraping: ${allCities.length} cities in ${totalBatches} batches of ${config.scraper.concurrency}`);
+    console.log(`[scraper] Starting city scraping: ${shuffledCities.length} cities in ${totalBatches} batches of ${config.scraper.concurrency}`);
 
     for (let batchIndex = 0; batchIndex < cityBatches.length; batchIndex++) {
       const batch = cityBatches[batchIndex];
