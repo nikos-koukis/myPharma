@@ -1,5 +1,5 @@
 /**
- * curl-impersonate fetcher
+ * curl-impersonate fetcher with exponential backoff
  * Uses curl-impersonate to mimic Chrome's TLS fingerprint and bypass Cloudflare
  * - Linux: uses native curl_chrome116 (must be installed)
  * - macOS: uses Docker with platform emulation
@@ -115,7 +115,6 @@ function randomElement<T>(arr: T[]): T {
 
 /**
  * Build curl-impersonate command with randomized headers
- * Uses native binary on Linux, Docker on macOS
  */
 function buildCommand(url: string, useProxy: boolean, includeCookies: boolean): string {
   const proxyUrl = config.scraper.proxyUrl;
@@ -153,29 +152,28 @@ function buildCommand(url: string, useProxy: boolean, includeCookies: boolean): 
     curlArgs.push(`-H "referer: ${referer}"`);
   }
 
-  // Route through VPN interface (Linux only, set VPN_INTERFACE=tun0)
+  // Route through VPN interface (Linux only)
   if (VPN_INTERFACE) {
     curlArgs.push(`--interface ${VPN_INTERFACE}`);
   }
 
   if (useProxy && proxyUrl) {
-    curlArgs.push('-k');  // Skip SSL verification (required for Bright Data MITM proxy)
+    curlArgs.push('-k');  // Skip SSL verification (required for MITM proxy)
     curlArgs.push(`-x "${proxyUrl}"`);
   }
 
   curlArgs.push(`"${url}"`);
 
   if (IS_LINUX) {
-    // Native curl-impersonate on Linux
     return `${curlBin} ${curlArgs.join(' ')}`;
   }
 
-  // Docker on macOS (with platform emulation for ARM)
+  // Docker on macOS
   return `docker run --platform linux/amd64 --rm ${DOCKER_IMAGE} ${curlBin} ${curlArgs.join(' ')}`;
 }
 
 /**
- * Execute curl-impersonate via Docker
+ * Execute curl-impersonate
  */
 async function executeCurl(url: string, useProxy: boolean, useCookies: boolean): Promise<FetchResult> {
   const cmd = buildCommand(url, useProxy, useCookies);
@@ -190,30 +188,23 @@ async function executeCurl(url: string, useProxy: boolean, useCookies: boolean):
       console.warn('[fetch] stderr:', stderr.substring(0, 100));
     }
 
-    // Last line is status code (from -w flag)
+    // Last line is status code
     const lines = stdout.split('\n');
     const statusCode = parseInt(lines.pop() || '0', 10);
     const fullResponse = lines.join('\n');
 
-    // Separate headers from body (headers end at first \r\n\r\n or \n\n)
-    // With -L (follow redirects), there may be multiple header blocks
+    // Separate headers from body
     let html = fullResponse;
     let headers = '';
 
-    // Find the last header/body separator (in case of redirects)
     const separatorMatch = fullResponse.match(/^([\s\S]*?\r?\n\r?\n)([\s\S]*)$/);
     if (separatorMatch) {
-      // There might be multiple redirects, find the final body
       const parts = fullResponse.split(/\r?\n\r?\n/);
-      // Last part is the body, everything before is headers
       html = parts[parts.length - 1];
       headers = parts.slice(0, -1).join('\n\n');
-
-      // Parse and store cookies from all headers
       parseCookies(headers);
     }
 
-    // Increment request counter
     cookieJar.requestCount++;
 
     return {
@@ -229,7 +220,6 @@ async function executeCurl(url: string, useProxy: boolean, useCookies: boolean):
       throw new Error('Request timed out');
     }
 
-    // Check for Docker not running
     if (error.stderr?.includes('Cannot connect to the Docker daemon')) {
       throw new Error('Docker is not running. Please start Docker Desktop.');
     }
@@ -239,54 +229,118 @@ async function executeCurl(url: string, useProxy: boolean, useCookies: boolean):
 }
 
 /**
- * Fetch a page using curl-impersonate (no retries - fail fast)
+ * Sleep helper
  */
-export async function fetchPage(url: string): Promise<FetchResult> {
-  // Extract city slug from URL for cleaner logging
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Calculate exponential backoff delay with jitter
+ * @param attempt - Attempt number (1-based)
+ * @param baseMs - Base delay in milliseconds
+ * @returns Delay in milliseconds
+ */
+function getBackoffDelay(attempt: number, baseMs: number = 2000): number {
+  // Exponential: 2s, 4s, 8s, 16s...
+  const exponential = Math.pow(2, attempt) * baseMs;
+  // Add jitter: ±25%
+  const jitter = exponential * 0.25 * (Math.random() * 2 - 1);
+  // Cap at 30 seconds
+  return Math.min(exponential + jitter, 30000);
+}
+
+/**
+ * Fetch a page using curl-impersonate with exponential backoff retry
+ * @param url - URL to fetch
+ * @param maxRetries - Maximum number of retries (default from config)
+ */
+export async function fetchPage(url: string, maxRetries: number = config.scraper.retries): Promise<FetchResult> {
+  // Extract city slug for logging
   const slug = url.match(/farmakeia\/([^/?]+)/)?.[1] || url;
 
-  // Check if we should refresh cookies (start fresh session)
+  // Check if we should refresh cookies
   if (shouldRefreshCookies()) {
     refreshCookies();
   }
 
-  const useProxy = false;
-  // Use cookies if we have them (after first successful request)
-  const useCookies = cookieJar.cookies.size > 0;
+  let lastError: Error | null = null;
 
-  console.log(`[fetch] ${slug}${useCookies ? ' [cookies]' : ''}`);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const useProxy = false; // Only use proxy on final retry
+    const useCookies = cookieJar.cookies.size > 0;
 
-  const result = await executeCurl(url, useProxy, useCookies);
+    if (attempt > 1) {
+      const backoffMs = getBackoffDelay(attempt - 1);
+      console.log(`[fetch] Retry ${attempt}/${maxRetries} for ${slug} after ${Math.round(backoffMs)}ms`);
+      await sleep(backoffMs);
+    } else {
+      console.log(`[fetch] ${slug}${useCookies ? ' [cookies]' : ''}`);
+    }
 
-  // Track HTTP status code in metrics
-  scraperHttpStatusTotal.inc({ status_code: String(result.status) });
+    try {
+      const result = await executeCurl(url, useProxy, useCookies);
 
-  // Check for blocked
-  if (result.status === 403 || result.status === 429) {
-    throw new Error(`HTTP ${result.status}: Blocked`);
+      // Track HTTP status code in metrics
+      scraperHttpStatusTotal.inc({ status_code: String(result.status) });
+
+      // Success - return result
+      if (result.status >= 200 && result.status < 400) {
+        // Check for Cloudflare challenge
+        if (result.html.includes('challenge-running') ||
+            result.html.includes('cf-challenge') ||
+            result.html.includes('Just a moment')) {
+          lastError = new Error('Cloudflare challenge detected');
+          continue; // Retry
+        }
+        return result;
+      }
+
+      // Rate limited - retry with backoff
+      if (result.status === 429 || result.status === 403) {
+        lastError = new Error(`HTTP ${result.status}: Rate limited`);
+        // Clear cookies on rate limit (might be flagged)
+        if (result.status === 429) {
+          refreshCookies();
+        }
+        continue; // Retry
+      }
+
+      // Server error - retry
+      if (result.status >= 500) {
+        lastError = new Error(`HTTP ${result.status}: Server error`);
+        continue; // Retry
+      }
+
+      // Other error (4xx except 403/429) - don't retry
+      throw new Error(`HTTP ${result.status}: Client error`);
+
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+
+      // Timeout or network error - retry
+      if (lastError.message.includes('timed out') || lastError.message.includes('network')) {
+        continue;
+      }
+
+      // Docker not running - fatal, don't retry
+      if (lastError.message.includes('Docker')) {
+        throw lastError;
+      }
+
+      // Other errors - retry
+      continue;
+    }
   }
 
-  if (result.status === 0 || result.status >= 500) {
-    throw new Error(`HTTP ${result.status}: Server error`);
-  }
-
-  // Check for Cloudflare challenge (shouldn't happen with impersonate)
-  if (result.html.includes('challenge-running') || result.html.includes('cf-challenge') || result.html.includes('Just a moment')) {
-    throw new Error('Cloudflare challenge detected');
-  }
-
-  return result;
+  // All retries exhausted
+  throw lastError || new Error('Fetch failed after all retries');
 }
 
 /**
- * No-op for compatibility
+ * No-op for compatibility - reset cookies silently
  */
 export async function closeBrowser(): Promise<void> {
-  // No browser to close - but reset cookies silently for next run
   cookieJar.cookies.clear();
   cookieJar.requestCount = 0;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

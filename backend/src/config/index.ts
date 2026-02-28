@@ -14,6 +14,12 @@ function envInt(key: string, defaultValue: number): number {
   return value ? parseInt(value, 10) : defaultValue;
 }
 
+function envBool(key: string, defaultValue: boolean): boolean {
+  const value = process.env[key];
+  if (!value) return defaultValue;
+  return value.toLowerCase() === 'true' || value === '1';
+}
+
 export const config = {
   server: {
     port: envInt('PORT', 3000),
@@ -35,18 +41,48 @@ export const config = {
   },
 
   scraper: {
-    pharmacyCron: '0 */4 * * *',             // Every 4 hours
-    //pharmacyCron: '10 07 * * *',  // 13:40 daily 
-    concurrency: 1,  // Sequential to avoid 429s
-    timeout: 30000,
-    retries: 3,
+    pharmacyCron: '0 */8 * * *', // Every 4 hours
+
+    // ===== PARALLELIZATION =====
+    // Number of cities to scrape concurrently (start conservative, increase if no 429s)
+    concurrency: envInt('SCRAPER_CONCURRENCY', 4),
+
+    // Number of prefectures to discover concurrently
+    prefectureConcurrency: envInt('SCRAPER_PREFECTURE_CONCURRENCY', 3),
+
+    // ===== RATE LIMITING =====
+    // Minimum delay between requests (ms) - actual delay is 1x to 1.5x this value
+    minDelayMs: envInt('SCRAPER_MIN_DELAY_MS', 1500),
+
+    // Delay between pagination requests (ms)
+    paginationDelayMs: envInt('SCRAPER_PAGINATION_DELAY_MS', 2000),
+
+    // Delay before retrying failed cities (ms)
+    retryDelayMs: envInt('SCRAPER_RETRY_DELAY_MS', 10000),
+
+    // ===== TIMEOUTS =====
+    timeout: envInt('SCRAPER_TIMEOUT', 30000),
+    retries: envInt('SCRAPER_RETRIES', 3),
+
+    // ===== SMART SCRAPING =====
+    // Only scrape tomorrow if overnight pharmacies detected today
+    smartTomorrowScrape: envBool('SCRAPER_SMART_TOMORROW', true),
+
+    // Skip geocoding for pharmacies that already have coordinates
+    skipExistingGeocode: envBool('SCRAPER_SKIP_EXISTING_GEOCODE', true),
+
+    // ===== BATCHING =====
+    // Batch size for database operations
+    dbBatchSize: envInt('SCRAPER_DB_BATCH_SIZE', 50),
+
     baseUrl: 'https://www.xo.gr/efimerevonta-farmakeia',
-    proxyUrl: env('SCRAPER_PROXY_URL', ''),  // Used on retry only, e.g., http://user:pass@proxy:8080
+    proxyUrl: env('SCRAPER_PROXY_URL', ''), // Used on retry only
   },
 
   geocoder: {
     provider: 'nominatim' as 'nominatim' | 'google' | 'geoapify',
     apiKey: env('GEOCODER_API_KEY', ''),
-    rateLimit: 1000,
+    // Reduced from 1000ms - Geoapify allows 3 req/s on free tier
+    rateLimit: envInt('GEOCODER_RATE_LIMIT', 350),
   },
 };

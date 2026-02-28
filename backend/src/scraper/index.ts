@@ -9,14 +9,55 @@ import { prisma } from '../db/client';
 import { invalidatePattern } from '../cache/redis';
 import { config } from '../config';
 
+// ===== UTILITY FUNCTIONS =====
+
+/**
+ * Split array into chunks of specified size
+ */
+function chunk<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
+/**
+ * Get randomized delay with jitter (1x to 1.5x base delay)
+ */
+function getRandomDelay(baseMs: number): number {
+  return baseMs + Math.random() * (baseMs * 0.5);
+}
+
+/**
+ * Format duration in human-readable format
+ */
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds % 60}s`;
+  }
+  return `${seconds}s`;
+}
+
+// ===== MAIN SCRAPER =====
+
 /**
  * Main scraper entry point
  * 1. Discovers all prefectures from xo.gr (or filters by SCRAPE_PREFECTURES env)
- * 2. Discovers cities from prefecture pages
- * 3. Scrapes all discovered cities
+ * 2. Discovers cities from prefecture pages (PARALLEL)
+ * 3. Scrapes all discovered cities (PARALLEL with rate limiting)
  */
 export async function runScraper(): Promise<void> {
-  console.log('[scraper] Starting...');
+  const overallStart = Date.now();
+  console.log('[scraper] Starting optimized scraper...');
+  console.log(`[scraper] Config: concurrency=${config.scraper.concurrency}, minDelay=${config.scraper.minDelayMs}ms, smartTomorrow=${config.scraper.smartTomorrowScrape}`);
 
   // Discover all prefectures from xo.gr
   console.log('[scraper] Discovering prefectures from xo.gr...');
@@ -28,11 +69,10 @@ export async function runScraper(): Promise<void> {
     return;
   }
 
-  // Filter by SCRAPE_PREFECTURES env var if set (preserves env var order)
+  // Filter by SCRAPE_PREFECTURES env var if set
   const filter = getScrapePrefectureFilter();
   let prefecturesToScrape: PrefectureConfig[];
   if (filter) {
-    // Build list in the order specified in SCRAPE_PREFECTURES
     prefecturesToScrape = [];
     for (const f of filter) {
       const match = allPrefectures.find(p =>
@@ -53,26 +93,47 @@ export async function runScraper(): Promise<void> {
 
   console.log(`[scraper] Will scrape ${prefecturesToScrape.length} prefecture(s)${filter ? ' (filtered)' : ' (all Greece)'}...`);
 
-  // Count total cities first for the scrape run record
+  // ===== PARALLEL PREFECTURE DISCOVERY =====
+  const discoveryStart = Date.now();
   const allCities: CityConfig[] = [];
-  for (const prefecture of prefecturesToScrape) {
-    try {
-      const prefectureCities = await discoverCities(prefecture);
-      allCities.push(...prefectureCities);
-      console.log(`[scraper] Discovered ${prefectureCities.length} cities for ${prefecture.name}`);
-      if (prefecturesToScrape.indexOf(prefecture) < prefecturesToScrape.length - 1) {
-        await sleep(5000);
+  const prefectureBatches = chunk(prefecturesToScrape, config.scraper.prefectureConcurrency);
+
+  console.log(`[scraper] Discovering cities in parallel (${config.scraper.prefectureConcurrency} prefectures at a time)...`);
+
+  for (const batch of prefectureBatches) {
+    const results = await Promise.allSettled(
+      batch.map(async (prefecture) => {
+        try {
+          const cities = await discoverCities(prefecture);
+          console.log(`[scraper] Discovered ${cities.length} cities for ${prefecture.name}`);
+          return cities;
+        } catch (err) {
+          console.error(`[scraper] Failed to discover cities for ${prefecture.name}:`, err);
+          return [];
+        }
+      })
+    );
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        allCities.push(...result.value);
       }
-    } catch (err) {
-      console.error(`[scraper] Failed to discover cities for ${prefecture.name}:`, err);
+    }
+
+    // Small delay between prefecture batches
+    if (prefectureBatches.indexOf(batch) < prefectureBatches.length - 1) {
+      await sleep(config.scraper.paginationDelayMs);
     }
   }
+
+  console.log(`[scraper] Discovery completed in ${formatDuration(Date.now() - discoveryStart)}: ${allCities.length} cities total`);
 
   if (allCities.length === 0) {
     console.log('[scraper] No cities to scrape');
     return;
   }
 
+  // Create scrape run record
   const scrapeRun = await prisma.scrapeRun.create({
     data: {
       totalCities: allCities.length,
@@ -80,26 +141,83 @@ export async function runScraper(): Promise<void> {
     },
   });
 
-  const startTime = Date.now();
+  const scrapeStart = Date.now();
   let totalScraped = 0;
   let saved = 0;
   let successCities = 0;
   let failedCities = 0;
+  let processedCities = 0;
   const rateLimitedCities: CityConfig[] = [];
 
   try {
-    // Process each prefecture: scrape cities, then clear cache for that region
+    // ===== PARALLEL CITY SCRAPING WITH PROGRESS =====
+    const cityBatches = chunk(allCities, config.scraper.concurrency);
+    const totalBatches = cityBatches.length;
+
+    console.log(`[scraper] Starting city scraping: ${allCities.length} cities in ${totalBatches} batches of ${config.scraper.concurrency}`);
+
+    for (let batchIndex = 0; batchIndex < cityBatches.length; batchIndex++) {
+      const batch = cityBatches[batchIndex];
+
+      // Process batch in parallel
+      const results = await Promise.allSettled(
+        batch.map((city) => scrapeCityTracked(city, scrapeRun.id))
+      );
+
+      // Collect results
+      for (const result of results) {
+        processedCities++;
+        if (result.status === 'fulfilled') {
+          totalScraped += result.value.pharmaciesFound;
+          saved += result.value.dutiesSaved;
+          if (result.value.success) {
+            successCities++;
+          } else if (result.value.rateLimited && result.value.city) {
+            rateLimitedCities.push(result.value.city);
+          } else {
+            failedCities++;
+          }
+        } else {
+          failedCities++;
+          console.error(`[scraper] Error:`, result.reason);
+        }
+      }
+
+      // ===== PROGRESS LOGGING =====
+      const elapsed = Date.now() - scrapeStart;
+      const rate = processedCities / (elapsed / 1000);
+      const remaining = (allCities.length - processedCities) / rate;
+      const progress = Math.round((processedCities / allCities.length) * 100);
+
+      console.log(
+        `[progress] ${progress}% | ${processedCities}/${allCities.length} cities | ` +
+        `${rate.toFixed(1)} cities/s | ETA: ${formatDuration(remaining * 1000)} | ` +
+        `Found: ${totalScraped} pharmacies`
+      );
+
+      // Rate limiting between batches
+      if (batchIndex < cityBatches.length - 1) {
+        await sleep(getRandomDelay(config.scraper.minDelayMs));
+      }
+    }
+
+    // Clear cache after all cities scraped
     for (const prefecture of prefecturesToScrape) {
-      const prefectureCities = allCities.filter(c => c.prefecture === prefecture.name);
-      if (prefectureCities.length === 0) continue;
+      await invalidatePattern(`pharmacies:on-duty:${prefecture.name}:*`);
+    }
+    await invalidatePattern(`pharmacies:nearby:*`);
+    console.log(`[scraper] Cache cleared for all prefectures`);
 
-      console.log(`[scraper] Scraping ${prefectureCities.length} cities for ${prefecture.name}...`);
+    // ===== PARALLEL RETRY OF FAILED CITIES =====
+    if (rateLimitedCities.length > 0) {
+      console.log(`[scraper] Retrying ${rateLimitedCities.length} rate-limited cities after ${config.scraper.retryDelayMs}ms...`);
+      await sleep(config.scraper.retryDelayMs);
 
-      // Scrape cities in batches
-      for (let i = 0; i < prefectureCities.length; i += config.scraper.concurrency) {
-        const batch = prefectureCities.slice(i, i + config.scraper.concurrency);
-        const batchEnd = Math.min(i + config.scraper.concurrency, prefectureCities.length);
-        console.log(`[scraper] [${prefecture.name}] [${i + 1}-${batchEnd}/${prefectureCities.length}]`);
+      // Retry in smaller batches (half the normal concurrency)
+      const retryBatches = chunk(rateLimitedCities, Math.max(1, Math.floor(config.scraper.concurrency / 2)));
+
+      for (const batch of retryBatches) {
+        console.log(`[scraper] Retrying batch: ${batch.map(c => c.name).join(', ')}`);
 
         const results = await Promise.allSettled(
           batch.map((city) => scrapeCityTracked(city, scrapeRun.id))
@@ -109,43 +227,20 @@ export async function runScraper(): Promise<void> {
           if (result.status === 'fulfilled') {
             totalScraped += result.value.pharmaciesFound;
             saved += result.value.dutiesSaved;
-            if (result.value.success) {
-              successCities++;
-            } else if (result.value.rateLimited && result.value.city) {
-              rateLimitedCities.push(result.value.city);
-            } else {
-              failedCities++;
-            }
+            if (result.value.success) successCities++;
+            else failedCities++;
           } else {
             failedCities++;
-            console.error(`[scraper] Error:`, result.reason);
           }
         }
-      }
 
-      // Clear cache for this prefecture immediately after scraping
-      await invalidatePattern(`pharmacies:on-duty:${prefecture.name}:*`);
-      await invalidatePattern(`pharmacies:nearby:*`); // Nearby queries may include this region
-      console.log(`[scraper] Cache cleared for ${prefecture.name}`);
-    }
-
-    // Retry failed cities at the end with delays
-    if (rateLimitedCities.length > 0) {
-      console.log(`[scraper] Retrying ${rateLimitedCities.length} failed cities...`);
-      await sleep(15000); // Wait 15s before retrying
-
-      for (const city of rateLimitedCities) {
-        console.log(`[scraper] Retry: ${city.name}`);
-        const result = await scrapeCityTracked(city, scrapeRun.id);
-        totalScraped += result.pharmaciesFound;
-        saved += result.dutiesSaved;
-        if (result.success) successCities++;
-        else failedCities++;
-
-        await sleep(5000); // 5s between retries
+        // Longer delay between retry batches
+        await sleep(config.scraper.retryDelayMs / 2);
       }
     }
 
+    // Update scrape run record
+    const totalDuration = Date.now() - overallStart;
     await prisma.scrapeRun.update({
       where: { id: scrapeRun.id },
       data: {
@@ -155,16 +250,18 @@ export async function runScraper(): Promise<void> {
         failedCities,
         totalPharmacies: totalScraped,
         totalDuties: saved,
-        durationMs: Date.now() - startTime,
+        durationMs: totalDuration,
       },
     });
 
-    console.log(`[scraper] Scraped ${totalScraped}, saved ${saved} pharmacies`);
-    // Full cache clear at the end to catch any edge cases
+    console.log(`[scraper] ✓ Completed in ${formatDuration(totalDuration)}`);
+    console.log(`[scraper]   Cities: ${successCities} success, ${failedCities} failed`);
+    console.log(`[scraper]   Pharmacies: ${totalScraped} found, ${saved} duties saved`);
+
+    // Full cache clear at the end
     await invalidatePattern('pharmacies:*');
     console.log('[scraper] Full cache invalidated');
     await closeBrowser();
-    console.log('[scraper] Done');
   } catch (err) {
     await prisma.scrapeRun.update({
       where: { id: scrapeRun.id },
@@ -175,7 +272,7 @@ export async function runScraper(): Promise<void> {
         failedCities,
         totalPharmacies: totalScraped,
         totalDuties: saved,
-        durationMs: Date.now() - startTime,
+        durationMs: Date.now() - overallStart,
         errorMessage: err instanceof Error ? err.message : String(err),
       },
     });
@@ -183,6 +280,8 @@ export async function runScraper(): Promise<void> {
     throw err;
   }
 }
+
+// ===== CITY SCRAPING =====
 
 interface CityScrapResult {
   pharmaciesFound: number;
@@ -193,51 +292,85 @@ interface CityScrapResult {
 }
 
 /**
- * Scrape a single city with tracking — records results to scrape_city_results
- * Scrapes both today and tomorrow to capture night-duty pharmacies (e.g., 21:00-08:00)
+ * Scrape a single city with tracking
+ * Uses SMART TOMORROW SCRAPING: only scrapes tomorrow if overnight shifts detected
  */
 async function scrapeCityTracked(city: CityConfig, scrapeRunId: string): Promise<CityScrapResult> {
   const cityStart = Date.now();
   const todayDate = getTodayForXo();
   const tomorrowDate = getTomorrowForXo();
 
-  // Scrape both days to get complete coverage of night shifts
-  const datesToScrape = [todayDate, tomorrowDate];
-
   let totalPharmacies = 0;
   let totalDuties = 0;
   let lastHttpStatus = 0;
   let lastUsedProxy = false;
   const urls: string[] = [];
+  let hasOvernightShifts = false;
 
   try {
-    for (const date of datesToScrape) {
-      const url = getCityUrl(city, date);
-      urls.push(url);
+    // ===== SCRAPE TODAY =====
+    const todayUrl = getCityUrl(city, todayDate);
+    urls.push(todayUrl);
 
-      const { html, status: httpStatus, usedProxy } = await fetchPage(url);
-      lastHttpStatus = httpStatus;
-      lastUsedProxy = usedProxy;
+    const { html: todayHtml, status: todayStatus, usedProxy } = await fetchPage(todayUrl);
+    lastHttpStatus = todayStatus;
+    lastUsedProxy = usedProxy;
 
-      // Rate limit: randomized 4-7s between requests
-      await sleep(4000 + Math.random() * 3000);
+    const todayIso = xoDateToIso(todayDate);
+    const todayPharmacies = parsePharmacyHtml(todayHtml, city.name, city.prefecture, todayIso);
 
+    // Check for overnight shifts BEFORE saving
+    for (const pharmacy of todayPharmacies) {
+      for (const duty of pharmacy.duties) {
+        const startHour = parseInt(duty.start.split(':')[0], 10);
+        const endHour = parseInt(duty.end.split(':')[0], 10);
+        if (endHour < startHour) {
+          hasOvernightShifts = true;
+          break;
+        }
+      }
+      if (hasOvernightShifts) break;
+    }
 
-      // Parse with the specific date we're scraping
-      const isoDate = xoDateToIso(date);
-      const pharmacies = parsePharmacyHtml(html, city.name, city.prefecture, isoDate);
-      const enriched = pharmacies.map((p) => ({
+    // Save today's pharmacies
+    const enrichedToday = todayPharmacies.map((p) => ({
+      ...p,
+      region: p.region || city.prefecture,
+    }));
+    totalPharmacies += enrichedToday.length;
+
+    for (const data of enrichedToday) {
+      totalDuties += await savePharmacy(data);
+    }
+
+    // ===== SMART TOMORROW SCRAPING =====
+    // Only scrape tomorrow if overnight shifts detected OR smart scraping is disabled
+    if (hasOvernightShifts || !config.scraper.smartTomorrowScrape) {
+      // Rate limit before tomorrow request
+      await sleep(getRandomDelay(config.scraper.minDelayMs));
+
+      const tomorrowUrl = getCityUrl(city, tomorrowDate);
+      urls.push(tomorrowUrl);
+
+      const { html: tomorrowHtml, status: tomorrowStatus, usedProxy: tomorrowProxy } = await fetchPage(tomorrowUrl);
+      lastHttpStatus = tomorrowStatus;
+      lastUsedProxy = tomorrowProxy;
+
+      const tomorrowIso = xoDateToIso(tomorrowDate);
+      const tomorrowPharmacies = parsePharmacyHtml(tomorrowHtml, city.name, city.prefecture, tomorrowIso);
+
+      const enrichedTomorrow = tomorrowPharmacies.map((p) => ({
         ...p,
         region: p.region || city.prefecture,
       }));
+      totalPharmacies += enrichedTomorrow.length;
 
-      totalPharmacies += enriched.length;
-
-      for (const data of enriched) {
+      for (const data of enrichedTomorrow) {
         totalDuties += await savePharmacy(data);
       }
     }
 
+    // Record success
     await prisma.scrapeCityResult.create({
       data: {
         scrapeRunId,
@@ -284,22 +417,22 @@ function xoDateToIso(xoDate: string): string {
   return `${year}-${month}-${day}`;
 }
 
+// ===== DATABASE OPERATIONS =====
+
 /**
  * Save pharmacy data to database
- * First tries to find existing pharmacy by phone or coordinates to avoid duplicates
- * when the same pharmacy appears with different city names
+ * OPTIMIZED: Skips geocoding for pharmacies that already have coordinates
  */
 async function savePharmacy(data: PharmacyData): Promise<number> {
   try {
-    // First, try to find an existing pharmacy by phone (if available)
-    // This catches duplicates where city name differs (e.g., "Πάτρα" vs "Παραλία Πατρών Αχαΐας")
+    // First, try to find an existing pharmacy by phone (catches duplicates)
     let existingPharmacy = null;
 
     if (data.phone) {
       existingPharmacy = await prisma.pharmacy.findFirst({
         where: {
           phone: data.phone,
-          name: data.name, // Same name + same phone = same pharmacy
+          name: data.name,
         },
       });
     }
@@ -307,17 +440,16 @@ async function savePharmacy(data: PharmacyData): Promise<number> {
     let pharmacy;
 
     if (existingPharmacy) {
-      // Update the existing pharmacy (keeps original city, updates other fields)
+      // Update the existing pharmacy
       pharmacy = await prisma.pharmacy.update({
         where: { id: existingPharmacy.id },
         data: {
           phone: data.phone,
           region: data.region,
-          // Don't update city/address to preserve the original record
         },
       });
     } else {
-      // No duplicate found, do the standard upsert by name/address/city
+      // Standard upsert by name/address/city
       pharmacy = await prisma.pharmacy.upsert({
         where: {
           name_address_city: {
@@ -340,29 +472,33 @@ async function savePharmacy(data: PharmacyData): Promise<number> {
       });
     }
 
-    // Always geocode and check for coordinate changes
-    const coords = await geocodeAddress(data.address, data.city);
-    if (coords) {
-      const hasCoords = pharmacy.lat !== null && pharmacy.lng !== null;
-      const coordsChanged = hasCoords && (
-        Math.abs(pharmacy.lat! - coords.lat) > 0.0001 ||
-        Math.abs(pharmacy.lng! - coords.lng) > 0.0001
-      );
+    // ===== SMART GEOCODING =====
+    // Only geocode if pharmacy doesn't have coordinates OR skipExistingGeocode is disabled
+    const needsGeocode = !pharmacy.lat || !pharmacy.lng;
 
-      if (!hasCoords || coordsChanged) {
-        if (coordsChanged) {
-          console.log(`[geo] Coordinates changed for ${pharmacy.name}: (${pharmacy.lat}, ${pharmacy.lng}) → (${coords.lat}, ${coords.lng})`);
+    if (needsGeocode || !config.scraper.skipExistingGeocode) {
+      const coords = await geocodeAddress(data.address, data.city);
+      if (coords) {
+        const hasCoords = pharmacy.lat !== null && pharmacy.lng !== null;
+        const coordsChanged = hasCoords && (
+          Math.abs(pharmacy.lat! - coords.lat) > 0.0001 ||
+          Math.abs(pharmacy.lng! - coords.lng) > 0.0001
+        );
+
+        if (!hasCoords || coordsChanged) {
+          if (coordsChanged) {
+            console.log(`[geo] Coordinates changed for ${pharmacy.name}: (${pharmacy.lat}, ${pharmacy.lng}) → (${coords.lat}, ${coords.lng})`);
+          }
+          await prisma.pharmacy.update({
+            where: { id: pharmacy.id },
+            data: { lat: coords.lat, lng: coords.lng },
+          });
         }
-        await prisma.pharmacy.update({
-          where: { id: pharmacy.id },
-          data: { lat: coords.lat, lng: coords.lng },
-        });
       }
+      await sleep(config.geocoder.rateLimit);
     }
-    await sleep(config.geocoder.rateLimit);
 
-    // Check if this is an overnight shift (end hour < start hour)
-    // If so, create TWO duty records: one for today, one for tomorrow
+    // Save duty records
     let dutiesCreated = 0;
 
     for (const duty of data.duties) {
@@ -371,9 +507,7 @@ async function savePharmacy(data: PharmacyData): Promise<number> {
       const isOvernight = endHour < startHour;
 
       if (isOvernight) {
-        // Split into two records:
-        // Day 1: start time to 23:59
-        // Day 2: 00:00 to end time
+        // Split into two records for overnight shifts
         const day1Date = new Date(data.dutyDate);
         const day2Date = new Date(data.dutyDate);
         day2Date.setDate(day2Date.getDate() + 1);

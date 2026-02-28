@@ -7,6 +7,7 @@ import * as cheerio from 'cheerio';
 import { fetchPage } from './hybrid-fetcher';
 import { CityConfig, PrefectureConfig } from './types';
 import { sleep } from './geocoder';
+import { config } from '../config';
 
 const BASE_URL = 'https://www.xo.gr/efimerevonta-farmakeia';
 
@@ -52,7 +53,7 @@ export async function discoverCities(prefecture: PrefectureConfig): Promise<City
       hasMorePages = hasNextPage(html, page);
       if (hasMorePages) {
         page++;
-        await sleep(3000); // Rate limit between pagination requests
+        await sleep(config.scraper.paginationDelayMs); // Rate limit between pagination requests
       }
     } catch (err) {
       console.error(`[discoverer] Failed to fetch page ${page}:`, err);
@@ -231,6 +232,7 @@ function hasNextPage(html: string, currentPage: number): boolean {
 
 /**
  * Discover cities for multiple prefectures
+ * NOTE: This function is now deprecated - use parallel discovery in runScraper() instead
  */
 export async function discoverAllCities(prefectures: PrefectureConfig[]): Promise<Map<string, CityConfig[]>> {
   const result = new Map<string, CityConfig[]>();
@@ -238,7 +240,7 @@ export async function discoverAllCities(prefectures: PrefectureConfig[]): Promis
   for (const prefecture of prefectures) {
     const cities = await discoverCities(prefecture);
     result.set(prefecture.slug, cities);
-    await sleep(5000); // Rate limit between prefectures
+    await sleep(config.scraper.paginationDelayMs); // Rate limit between prefectures
   }
 
   return result;
