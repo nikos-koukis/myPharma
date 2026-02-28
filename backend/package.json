@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "scrape": "tsx scripts/scrape.ts",
+    "retry-failed": "tsx scripts/retry-failed.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "db:generate": "prisma generate --schema=src/db/prisma/schema.prisma",

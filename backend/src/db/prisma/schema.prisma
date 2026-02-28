@@ -130,3 +130,27 @@ model GeoValidation {
   @@index([validatedAt])
   @@map("geo_validations")
 }
+
+// Track failed URLs for retry (429, 503, 404 errors)
+model FailedUrl {
+  id           String   @id @default(uuid())
+  url          String
+  city         String
+  prefecture   String
+  httpStatus   Int      @map("http_status")  // 429, 503, 404, etc.
+  errorMessage String?  @map("error_message")
+  retryCount   Int      @default(0) @map("retry_count")
+  maxRetries   Int      @default(5) @map("max_retries")
+  lastAttempt  DateTime @default(now()) @map("last_attempt")
+  nextRetry    DateTime @default(now()) @map("next_retry")
+  resolved     Boolean  @default(false)  // true when successfully scraped
+  resolvedAt   DateTime? @map("resolved_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([url, city])  // One entry per URL per city
+  @@index([httpStatus])
+  @@index([resolved])
+  @@index([nextRetry])
+  @@index([retryCount])
+  @@map("failed_urls")
+}

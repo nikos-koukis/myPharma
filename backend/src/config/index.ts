@@ -77,6 +77,14 @@ export const config = {
 
     baseUrl: 'https://www.xo.gr/efimerevonta-farmakeia',
     proxyUrl: env('SCRAPER_PROXY_URL', ''), // Used on retry only
+
+    // ===== FAILED URL RETRY =====
+    // Cron schedule for retrying failed URLs (default: every hour)
+    retryFailedCron: env('SCRAPER_RETRY_FAILED_CRON', '0 * * * *'),
+    // Max URLs to retry per run
+    retryBatchSize: envInt('SCRAPER_RETRY_BATCH_SIZE', 50),
+    // Max retry attempts before giving up
+    maxRetryAttempts: envInt('SCRAPER_MAX_RETRY_ATTEMPTS', 5),
   },
 
   geocoder: {

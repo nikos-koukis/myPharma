@@ -2,12 +2,14 @@ import cron from 'node-cron';
 import { startServer } from './api/server';
 import { runScraper } from './scraper';
 import { runCoordValidation } from './scraper/coord-validator';
+import { retryFailedUrls, cleanupResolvedUrls } from './scraper/retry-failed';
 import { config } from './config';
 
 async function main() {
   // Start the API server
   await startServer();
 
+  // Main scraper cron (every 8 hours by default)
   cron.schedule(config.scraper.pharmacyCron, async () => {
     console.log('[cron] Running pharmacy scrape...');
     try {
@@ -21,7 +23,25 @@ async function main() {
     }
   });
 
+  // Retry failed URLs cron (every hour by default)
+  cron.schedule(config.scraper.retryFailedCron, async () => {
+    console.log('[cron] Retrying failed URLs...');
+    try {
+      const result = await retryFailedUrls();
+      console.log(`[cron] Retry complete: ${result.success} success, ${result.failed} failed`);
+
+      // Clean up old resolved entries once a day (at midnight)
+      const hour = new Date().getHours();
+      if (hour === 0) {
+        await cleanupResolvedUrls();
+      }
+    } catch (err) {
+      console.error('[cron] Failed URL retry failed:', err);
+    }
+  });
+
   console.log(`[cron] Pharmacy scrape scheduled: ${config.scraper.pharmacyCron}`);
+  console.log(`[cron] Failed URL retry scheduled: ${config.scraper.retryFailedCron}`);
 }
 
 main().catch((err) => {

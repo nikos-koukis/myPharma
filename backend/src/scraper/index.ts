@@ -408,8 +408,13 @@ async function scrapeCityTracked(city: CityConfig, scrapeRunId: string): Promise
     const errMsg = err instanceof Error ? err.message : String(err);
     const isRateLimited = errMsg.includes('429') || errMsg.includes('403');
 
+    // Extract HTTP status code from error message
+    const httpStatusMatch = errMsg.match(/HTTP (\d{3})/);
+    const httpStatus = httpStatusMatch ? parseInt(httpStatusMatch[1], 10) : 0;
+
     console.error(`[scraper] Failed to scrape ${city.name}:`, errMsg);
 
+    // Record in scrape_city_results
     await prisma.scrapeCityResult.create({
       data: {
         scrapeRunId,
@@ -418,11 +423,67 @@ async function scrapeCityTracked(city: CityConfig, scrapeRunId: string): Promise
         status: isRateLimited ? 'rate_limited' : 'failed',
         url: urls.join(' | ') || getCityUrl(city, todayDate),
         durationMs: Date.now() - cityStart,
+        httpStatus: httpStatus || undefined,
         errorMessage: errMsg,
       },
     });
 
+    // Save to failed_urls table for retry (429, 503, 404)
+    const retryableStatuses = [429, 503, 404, 403, 500, 502];
+    if (retryableStatuses.includes(httpStatus)) {
+      const failedUrl = urls[0] || getCityUrl(city, todayDate);
+      await saveFailedUrl(failedUrl, city.name, city.prefecture, httpStatus, errMsg);
+    }
+
     return { pharmaciesFound: 0, dutiesSaved: 0, success: false, rateLimited: isRateLimited, city };
+  }
+}
+
+/**
+ * Save a failed URL for later retry
+ */
+async function saveFailedUrl(
+  url: string,
+  city: string,
+  prefecture: string,
+  httpStatus: number,
+  errorMessage: string
+): Promise<void> {
+  try {
+    // Calculate next retry time with exponential backoff
+    const existing = await prisma.failedUrl.findUnique({
+      where: { url_city: { url, city } },
+    });
+
+    const retryCount = existing ? existing.retryCount + 1 : 0;
+    const backoffMinutes = Math.min(Math.pow(2, retryCount) * 15, 480); // Max 8 hours
+    const nextRetry = new Date(Date.now() + backoffMinutes * 60 * 1000);
+
+    await prisma.failedUrl.upsert({
+      where: { url_city: { url, city } },
+      update: {
+        httpStatus,
+        errorMessage,
+        retryCount,
+        lastAttempt: new Date(),
+        nextRetry,
+        resolved: false,
+        resolvedAt: null,
+      },
+      create: {
+        url,
+        city,
+        prefecture,
+        httpStatus,
+        errorMessage,
+        retryCount: 0,
+        nextRetry: new Date(Date.now() + 15 * 60 * 1000), // First retry in 15 min
+      },
+    });
+
+    console.log(`[scraper] Saved failed URL for retry: ${city} (HTTP ${httpStatus}, retry #${retryCount + 1})`);
+  } catch (saveErr) {
+    console.error(`[scraper] Failed to save failed URL:`, saveErr);
   }
 }
 
