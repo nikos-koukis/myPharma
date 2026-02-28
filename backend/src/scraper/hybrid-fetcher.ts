@@ -21,8 +21,8 @@ export interface FetchResult {
 }
 
 // Docker image for curl-impersonate Chrome variant (macOS only)
-// Version 0.7.1 has improved TLS fingerprints for Chrome 116+
-const DOCKER_IMAGE = 'lwthiker/curl-impersonate:0.7.1-chrome';
+// Available tags: 0.5-chrome, 0.6-chrome (latest stable)
+const DOCKER_IMAGE = 'lwthiker/curl-impersonate:0.6-chrome';
 const IS_LINUX = platform() === 'linux';
 
 // Cookie persistence for human-like behavior
@@ -95,13 +95,13 @@ const VPN_INTERFACE: string | null = process.env.VPN_INTERFACE || null;
 
 // ===== ANTI-DETECTION RANDOMIZATION =====
 
-// More Chrome versions for TLS fingerprint variety (0.7.1 supports these)
+// Chrome versions available in curl-impersonate 0.6
 const CHROME_VERSIONS = [
-  'curl_chrome119',         // Newest in 0.7.1
   'curl_chrome116',
   'curl_chrome110',
   'curl_chrome107',
   'curl_chrome104',
+  'curl_chrome99',
   'curl_chrome99_android',  // Mobile fingerprint variety
 ];
 
@@ -132,13 +132,13 @@ const ACCEPT_ENCODINGS = [
   'br, gzip, deflate',
 ];
 
-// Sec-CH-UA variations (browser hints) - must match CHROME_VERSIONS
+// Sec-CH-UA variations (browser hints) - matches CHROME_VERSIONS in 0.6
 const SEC_CH_UA = [
-  '"Google Chrome";v="119", "Chromium";v="119", "Not?A_Brand";v="24"',
   '"Chromium";v="116", "Not)A;Brand";v="24", "Google Chrome";v="116"',
   '"Chromium";v="110", "Not A(Brand";v="24", "Google Chrome";v="110"',
   '"Google Chrome";v="107", "Chromium";v="107", "Not=A?Brand";v="24"',
   '"Chromium";v="104", "Google Chrome";v="104", "Not A;Brand";v="99"',
+  '"Google Chrome";v="99", "Chromium";v="99", " Not A;Brand";v="99"',
 ];
 
 // Track requests for human-like pause pattern
