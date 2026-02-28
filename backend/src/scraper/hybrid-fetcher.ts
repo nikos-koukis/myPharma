@@ -132,13 +132,13 @@ const ACCEPT_ENCODINGS = [
   'br, gzip, deflate',
 ];
 
-// Sec-CH-UA variations (browser hints) - matches CHROME_VERSIONS in 0.6
+// Sec-CH-UA variations (browser hints) - shell-safe versions without problematic chars
 const SEC_CH_UA = [
-  '"Chromium";v="116", "Not)A;Brand";v="24", "Google Chrome";v="116"',
-  '"Chromium";v="110", "Not A(Brand";v="24", "Google Chrome";v="110"',
-  '"Google Chrome";v="107", "Chromium";v="107", "Not=A?Brand";v="24"',
-  '"Chromium";v="104", "Google Chrome";v="104", "Not A;Brand";v="99"',
-  '"Google Chrome";v="99", "Chromium";v="99", " Not A;Brand";v="99"',
+  'Chromium;v=116, Not-A.Brand;v=24, Google-Chrome;v=116',
+  'Chromium;v=110, Not-A.Brand;v=24, Google-Chrome;v=110',
+  'Google-Chrome;v=107, Chromium;v=107, Not-A.Brand;v=24',
+  'Chromium;v=104, Google-Chrome;v=104, Not-A.Brand;v=99',
+  'Google-Chrome;v=99, Chromium;v=99, Not-A.Brand;v=99',
 ];
 
 // Track requests for human-like pause pattern
@@ -148,6 +148,14 @@ const REQUESTS_BEFORE_BREAK_MAX = 35;
 
 function randomElement<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/**
+ * Escape string for shell (single quotes)
+ */
+function shellEscape(str: string): string {
+  // Use single quotes and escape any single quotes within
+  return "'" + str.replace(/'/g, "'\\''") + "'";
 }
 
 /**
@@ -170,28 +178,28 @@ function buildCommand(url: string, useProxy: boolean, includeCookies: boolean): 
     '-L',                    // Follow redirects
     '-i',                    // Include headers (for Set-Cookie parsing)
     `-m ${timeout}`,         // Max time
-    '-w "\\n%{http_code}"',  // Output status code at end
-    `-H "accept-language: ${acceptLang}"`,
-    `-H "accept-encoding: ${acceptEncoding}"`,
-    '-H "accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"',
-    '-H "cache-control: max-age=0"',
-    `-H "sec-ch-ua: ${secChUa}"`,
-    `-H "sec-ch-ua-mobile: ${isMobile ? '?1' : '?0'}"`,
-    `-H "sec-ch-ua-platform: \\"${isMobile ? 'Android' : 'Windows'}\\""`,
-    '-H "upgrade-insecure-requests: 1"',
+    `-w '\\n%{http_code}'`,  // Output status code at end
+    `-H ${shellEscape('accept-language: ' + acceptLang)}`,
+    `-H ${shellEscape('accept-encoding: ' + acceptEncoding)}`,
+    `-H ${shellEscape('accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8')}`,
+    `-H ${shellEscape('cache-control: max-age=0')}`,
+    `-H ${shellEscape('sec-ch-ua: ' + secChUa)}`,
+    `-H ${shellEscape('sec-ch-ua-mobile: ' + (isMobile ? '?1' : '?0'))}`,
+    `-H ${shellEscape('sec-ch-ua-platform: ' + (isMobile ? 'Android' : 'Windows'))}`,
+    `-H ${shellEscape('upgrade-insecure-requests: 1')}`,
   ];
 
   // Add cookies if we have them (human-like persistence)
   if (includeCookies) {
     const cookieStr = getCookieString();
     if (cookieStr) {
-      curlArgs.push(`-b "${cookieStr}"`);
+      curlArgs.push(`-b ${shellEscape(cookieStr)}`);
     }
   }
 
   // Add referer randomly (sometimes browsers don't send it)
   if (referer) {
-    curlArgs.push(`-H "referer: ${referer}"`);
+    curlArgs.push(`-H ${shellEscape('referer: ' + referer)}`);
   }
 
   // Route through VPN interface (Linux only)
@@ -201,10 +209,10 @@ function buildCommand(url: string, useProxy: boolean, includeCookies: boolean): 
 
   if (useProxy && proxyUrl) {
     curlArgs.push('-k');  // Skip SSL verification (required for MITM proxy)
-    curlArgs.push(`-x "${proxyUrl}"`);
+    curlArgs.push(`-x ${shellEscape(proxyUrl)}`);
   }
 
-  curlArgs.push(`"${url}"`);
+  curlArgs.push(shellEscape(url));
 
   if (IS_LINUX) {
     return `${curlBin} ${curlArgs.join(' ')}`;
