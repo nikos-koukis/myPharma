@@ -4,6 +4,7 @@ import { CityConfig, getCityUrl, getTodayForXo, getTomorrowForXo, getScrapePrefe
 import { discoverCities, discoverAllPrefectures } from './prefecture-discoverer';
 import { PrefectureConfig } from './types';
 import { geocodeAddress, sleep } from './geocoder';
+import { runCoordValidation } from './coord-validator';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db/client';
 import { invalidatePattern } from '../cache/redis';
@@ -278,6 +279,17 @@ export async function runScraper(): Promise<void> {
     // Full cache clear at the end
     await invalidatePattern('pharmacies:*');
     console.log('[scraper] Full cache invalidated');
+
+    // Run coordinate validation and save results to geo_validations table
+    console.log('[scraper] Running coordinate validation...');
+    try {
+      const validation = await runCoordValidation();
+      console.log(`[scraper] Validation: ${validation.valid} valid, ${validation.invalid} invalid coordinates`);
+    } catch (validationErr) {
+      console.error('[scraper] Coordinate validation failed:', validationErr);
+      // Don't fail the scrape run if validation fails
+    }
+
     await closeBrowser();
   } catch (err) {
     await prisma.scrapeRun.update({
