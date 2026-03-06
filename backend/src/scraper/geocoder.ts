@@ -34,6 +34,18 @@ function cleanCity(city: string): string {
   return city.replace(/\s*\([^)]*\)/g, '').trim();
 }
 
+/**
+ * Extract main city from parentheses in city field
+ * "Αγία Σοφία (Πάτρα)" → "Πάτρα"
+ * "Μεταμόρφωση Σωτήρος (Πάτρα - Οβριά)" → "Πάτρα"
+ */
+function extractCityFromParentheses(city: string): string | null {
+  const match = city.match(/\(([^)]+)\)/);
+  if (!match) return null;
+  // Take first part before " - " if present (e.g., "Πάτρα - Οβριά" → "Πάτρα")
+  return match[1].split(' - ')[0].trim();
+}
+
 export async function geocodeAddress(address: string, city: string): Promise<GeoResult | null> {
   if (!config.geocoder.apiKey) {
     console.warn('[geo] No Geoapify API key configured');
@@ -44,7 +56,9 @@ export async function geocodeAddress(address: string, city: string): Promise<Geo
   // Try to extract main city from address (e.g., "26223 Πάτρα" → "Πάτρα")
   // This helps disambiguate neighborhoods like "Αγία Σοφία" that exist in multiple cities
   const mainCity = extractMainCity(address);
-  const cleanedCity = mainCity || cleanCity(city);
+  // Fallback: extract from parentheses in city field (e.g., "Αγία Σοφία (Πάτρα)" → "Πάτρα")
+  const parenthesesCity = extractCityFromParentheses(city);
+  const cleanedCity = mainCity || parenthesesCity || cleanCity(city);
   const query = `${cleanedAddress}, ${cleanedCity}, Greece`;
 
   const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(query)}&apiKey=${config.geocoder.apiKey}`;
