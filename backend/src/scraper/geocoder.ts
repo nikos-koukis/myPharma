@@ -49,19 +49,38 @@ export async function geocodeAddress(address: string, city: string): Promise<Geo
 
   const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(query)}&apiKey=${config.geocoder.apiKey}`;
 
-  const res = await fetch(url);
-  if (!res.ok) return null;
+  // Retry logic for transient errors (ECONNRESET, timeouts)
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
 
-  const data = await res.json() as {
-    features: Array<{ properties: { lat: number; lon: number } }>;
-  };
-  if (data.features.length === 0) return null;
+      const data = await res.json() as {
+        features: Array<{ properties: { lat: number; lon: number } }>;
+      };
+      if (data.features.length === 0) return null;
 
-  const props = data.features[0].properties;
-  const result = { lat: props.lat, lng: props.lon };
+      const props = data.features[0].properties;
+      const result = { lat: props.lat, lng: props.lon };
 
-  console.log(`[geo] ${cleanedCity}: ${result.lat.toFixed(4)}, ${result.lng.toFixed(4)}`);
-  return result;
+      console.log(`[geo] ${cleanedCity}: ${result.lat.toFixed(4)}, ${result.lng.toFixed(4)}`);
+      return result;
+    } catch (err) {
+      const isRetryable = err instanceof Error &&
+        (err.message.includes('ECONNRESET') || err.message.includes('fetch failed') || err.message.includes('ETIMEDOUT'));
+
+      if (isRetryable && attempt < maxRetries) {
+        const backoff = attempt * 1000;
+        console.warn(`[geo] Retry ${attempt}/${maxRetries} for ${cleanedCity} after ${backoff}ms`);
+        await sleep(backoff);
+        continue;
+      }
+      console.error(`[geo] Failed to geocode ${cleanedCity}:`, err instanceof Error ? err.message : err);
+      return null;
+    }
+  }
+  return null;
 }
 
 export async function sleep(ms: number): Promise<void> {
