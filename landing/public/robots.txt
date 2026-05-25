@@ -1,6 +1,9 @@
 # PharmaGo - Εφημερεύοντα Φαρμακεία Ελλάδα
 # https://pharmago.gr
 
+User-agent: Google-adstxt
+Disallow:
+
 User-agent: *
 Allow: /
 
