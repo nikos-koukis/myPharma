@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Platform, ActivityIndicator, NativeModules, Text } from 'react-native';
+import { StyleSheet, View, Platform, NativeModules, Text } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
 // 1. Check if the native AdMob module is present in the current binary
@@ -22,11 +22,12 @@ if (hasNativeModule) {
   }
 }
 
-// Official Google AdMob test Unit IDs for Banners
+// User-provided production Ad Unit ID: ca-app-pub-7198509049220853/6307133482
+// Using TestIds in dev mode preserves safety, but resolves to production ID in build.
 const AD_UNIT_ID = Platform.select({
-  ios: __DEV__ ? (TestIds?.BANNER ?? 'ca-app-pub-3940256099942544/2934735716') : 'ca-app-pub-3940256099942544/2934735716',
-  android: __DEV__ ? (TestIds?.BANNER ?? 'ca-app-pub-3940256099942544/6300978111') : 'ca-app-pub-3940256099942544/6300978111',
-  default: 'ca-app-pub-3940256099942544/2934735716',
+  ios: __DEV__ ? (TestIds?.BANNER ?? 'ca-app-pub-7198509049220853/6307133482') : 'ca-app-pub-7198509049220853/6307133482',
+  android: __DEV__ ? (TestIds?.BANNER ?? 'ca-app-pub-7198509049220853/6307133482') : 'ca-app-pub-7198509049220853/6307133482',
+  default: 'ca-app-pub-7198509049220853/6307133482',
 });
 
 interface AdBannerProps {
@@ -53,35 +54,45 @@ export function AdBanner({ size = 'BANNER' }: AdBannerProps) {
     }
   };
 
-  // If running in Expo Go (missing native module), render a fallback placeholder
+  // If running in Expo Go (missing native module), render a fallback placeholder ONLY in __DEV__
+  // In production, this returns null to hide everything
   if (!hasNativeModule || !BannerAd) {
-    return (
-      <View
-        style={[
-          styles.container,
-          styles.placeholderContainer,
-          {
-            backgroundColor: isDark ? 'rgba(30, 41, 59, 0.4)' : 'rgba(220, 252, 231, 0.3)',
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-            minHeight: getMinHeight(),
-          },
-        ]}
-      >
-        <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
-          [AdMob Banner Placeholder ({size})]
-        </Text>
-      </View>
-    );
+    if (__DEV__) {
+      return (
+        <View
+          style={[
+            styles.container,
+            styles.placeholderContainer,
+            {
+              backgroundColor: isDark ? 'rgba(30, 41, 59, 0.4)' : 'rgba(220, 252, 231, 0.3)',
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+              minHeight: getMinHeight(),
+              marginVertical: 14,
+            },
+          ]}
+        >
+          <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
+            [AdMob Banner Placeholder ({size})]
+          </Text>
+        </View>
+      );
+    }
+    return null;
   }
 
+  // When loading or failed, keep container completely collapsed (no border, no height, no margin)
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.4)' : 'rgba(240, 253, 244, 0.5)',
-          borderColor: colors.glassBorder,
-          minHeight: getMinHeight(),
+          backgroundColor: loaded 
+            ? (isDark ? 'rgba(15, 23, 42, 0.4)' : 'rgba(240, 253, 244, 0.5)') 
+            : 'transparent',
+          borderColor: loaded ? colors.glassBorder : 'transparent',
+          borderWidth: loaded ? 1 : 0,
+          height: loaded ? undefined : 0,
+          marginVertical: loaded ? 14 : 0,
         },
       ]}
     >
@@ -99,11 +110,6 @@ export function AdBanner({ size = 'BANNER' }: AdBannerProps) {
           setVisible(false); // Collapse component if ad fails to load
         }}
       />
-      {!loaded && (
-        <View style={StyleSheet.absoluteFillObject}>
-          <ActivityIndicator size="small" color={colors.primary} style={styles.loader} />
-        </View>
-      )}
     </View>
   );
 }
@@ -113,22 +119,16 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 14,
     borderRadius: 16,
-    borderWidth: 1,
     overflow: 'hidden',
   },
   placeholderContainer: {
     borderStyle: 'dashed',
+    borderWidth: 1,
   },
   placeholderText: {
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.5,
-  },
-  loader: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });
