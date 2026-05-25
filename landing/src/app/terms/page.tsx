@@ -109,7 +109,7 @@ export default function TermsAndConditions() {
 
                 <h2>12. Contact Us</h2>
                 <p>If you have questions or concerns about these Terms, please contact us at:</p>
-                <p><strong>Email:</strong> <a href="mailto:legal@pharmago.gr">legal@pharmago.gr</a></p>
+                <p><strong>Email:</strong> <a href="mailto:legal@pharmagoapp.gr">legal@pharmagoapp.gr</a></p>
 
                 <p className="last-updated"><em>Last Updated: February 6, 2026</em></p>
             </main>

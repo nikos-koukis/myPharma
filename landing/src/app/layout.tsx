@@ -70,7 +70,7 @@ export const metadata: Metadata = {
   ],
 
   // Authors and Publisher
-  authors: [{ name: "PharmaGo Team", url: "https://pharmago.gr" }],
+  authors: [{ name: "PharmaGo Team", url: "https://pharmagoapp.gr" }],
   creator: "PharmaGo",
   publisher: "PharmaGo",
 
@@ -88,7 +88,7 @@ export const metadata: Metadata = {
   },
 
   // Canonical URL
-  metadataBase: new URL('https://pharmago.gr'),
+  metadataBase: new URL('https://pharmagoapp.gr'),
   alternates: {
     canonical: '/',
     languages: {
@@ -102,7 +102,7 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'el_GR',
     alternateLocale: 'en_US',
-    url: 'https://pharmago.gr',
+    url: 'https://pharmagoapp.gr',
     siteName: 'PharmaGo',
     title: 'PharmaGo | Εφημερεύοντα & Διανυκτερεύοντα Φαρμακεία Ελλάδα',
     description: 'Βρες εφημερεύοντα φαρμακεία κοντά σου σε πραγματικό χρόνο. GPS πλοήγηση, διανυκτερεύοντα φαρμακεία, ανοιχτά φαρμακεία σε όλη την Ελλάδα. Δωρεάν εφαρμογή.',
@@ -138,7 +138,7 @@ export const metadata: Metadata = {
       url: 'https://play.google.com/store/apps/details?id=gr.pharmago.app',
     },
     web: {
-      url: 'https://pharmago.gr',
+      url: 'https://pharmagoapp.gr',
       should_fallback: true,
     },
   },
@@ -170,7 +170,7 @@ const jsonLd = {
     // MobileApplication Schema
     {
       '@type': 'MobileApplication',
-      '@id': 'https://pharmago.gr/#app',
+      '@id': 'https://pharmagoapp.gr/#app',
       name: 'PharmaGo',
       alternateName: 'PharmaGo - Εφημερεύοντα Φαρμακεία',
       description: 'Εφαρμογή εύρεσης εφημερευόντων και διανυκτερευόντων φαρμακείων στην Ελλάδα με GPS πλοήγηση σε πραγματικό χρόνο.',
@@ -195,7 +195,7 @@ const jsonLd = {
         'https://apps.apple.com/us/app/pharmago-%CE%B5%CF%86%CE%B7%CE%BC%CE%B5%CF%81%CE%AF%CE%B5%CF%82-%CF%86%CE%B1%CF%81%CE%BC%CE%B1%CE%BA%CE%B5%CE%AF%CF%89%CE%BD/id6758830879',
         'https://play.google.com/store/apps/details?id=gr.pharmago.app',
       ],
-      screenshot: 'https://pharmago.gr/app-screenshot.png',
+      screenshot: 'https://pharmagoapp.gr/app-screenshot.png',
       featureList: [
         'Εφημερεύοντα φαρμακεία σε πραγματικό χρόνο',
         'GPS πλοήγηση',
@@ -207,10 +207,10 @@ const jsonLd = {
     // Organization Schema
     {
       '@type': 'Organization',
-      '@id': 'https://pharmago.gr/#organization',
+      '@id': 'https://pharmagoapp.gr/#organization',
       name: 'PharmaGo',
-      url: 'https://pharmago.gr',
-      logo: 'https://pharmago.gr/logo.png',
+      url: 'https://pharmagoapp.gr',
+      logo: 'https://pharmagoapp.gr/logo.png',
       sameAs: [
         'https://twitter.com/pharmago_gr',
         'https://facebook.com/pharmago.gr',
@@ -218,7 +218,7 @@ const jsonLd = {
       ],
       contactPoint: {
         '@type': 'ContactPoint',
-        email: 'contact@pharmago.gr',
+        email: 'contact@pharmagoapp.gr',
         contactType: 'customer service',
         availableLanguage: ['Greek', 'English'],
       },
@@ -226,19 +226,19 @@ const jsonLd = {
     // WebSite Schema with SearchAction
     {
       '@type': 'WebSite',
-      '@id': 'https://pharmago.gr/#website',
-      url: 'https://pharmago.gr',
+      '@id': 'https://pharmagoapp.gr/#website',
+      url: 'https://pharmagoapp.gr',
       name: 'PharmaGo - Εφημερεύοντα Φαρμακεία Ελλάδα',
       description: 'Βρες εφημερεύοντα και διανυκτερεύοντα φαρμακεία στην Ελλάδα',
       inLanguage: ['el', 'en'],
       publisher: {
-        '@id': 'https://pharmago.gr/#organization',
+        '@id': 'https://pharmagoapp.gr/#organization',
       },
       potentialAction: {
         '@type': 'SearchAction',
         target: {
           '@type': 'EntryPoint',
-          urlTemplate: 'https://pharmago.gr/search?q={search_term_string}',
+          urlTemplate: 'https://pharmagoapp.gr/search?q={search_term_string}',
         },
         'query-input': 'required name=search_term_string',
       },

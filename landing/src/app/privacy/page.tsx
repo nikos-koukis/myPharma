@@ -48,7 +48,7 @@ export default function PrivacyPolicy() {
 
                 <h2>6. Contact Us</h2>
                 <p>If you have any questions about this Privacy Policy, please contact us at:</p>
-                <p><strong>Email:</strong> <a href="mailto:privacy@pharmago.gr">privacy@pharmago.gr</a></p>
+                <p><strong>Email:</strong> <a href="mailto:privacy@pharmagoapp.gr">privacy@pharmagoapp.gr</a></p>
             </main>
 
             <footer className="legal-footer">

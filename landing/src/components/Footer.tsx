@@ -17,7 +17,7 @@ export default function Footer() {
                 <div className="footer-links">
                     <Link href="/privacy">{t.footer.privacy}</Link>
                     <Link href="/terms">{t.footer.terms}</Link>
-                    <Link href="mailto:info@pharmago.gr">{t.footer.contact}</Link>
+                    <Link href="mailto:info@pharmagoapp.gr">{t.footer.contact}</Link>
                 </div>
             </div>
             <div className="footer-copy">
