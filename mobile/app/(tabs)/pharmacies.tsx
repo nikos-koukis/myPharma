@@ -3,6 +3,7 @@ import { View, FlatList, StyleSheet, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/theme/ThemeProvider';
 import { useAppStore } from '../../src/store';
+import { AdBanner } from '../../src/components/AdBanner';
 import { useNearbyPharmacies } from '../../src/hooks/usePharmacies';
 import { useLocation } from '../../src/hooks/useLocation';
 import { DatePicker } from '../../src/components/DatePicker';
@@ -81,6 +82,20 @@ export default function OnDutyScreen() {
     if (filter === 'opening_later') return pharmaciesWithStatus.filter((p) => p._isOpeningLater);
     return [];
   }, [pharmaciesWithStatus, filter]);
+
+  // Inject AdMob Banners every 5 items in the list
+  const dataWithAds = useMemo(() => {
+    if (!filteredData || filteredData.length === 0) return [];
+    const result: any[] = [];
+    filteredData.forEach((item, index) => {
+      result.push(item);
+      // Inject banner ad after every 5 items
+      if ((index + 1) % 5 === 0 && index !== filteredData.length - 1) {
+        result.push({ isAd: true, id: `ad-${item.id}` });
+      }
+    });
+    return result;
+  }, [filteredData]);
 
   // Count open/later for filter badges
   const openCount = useMemo(() => pharmaciesWithStatus.filter((p) => p._isOpen).length, [pharmaciesWithStatus]);
@@ -185,15 +200,26 @@ export default function OnDutyScreen() {
         />
       ) : (
         <FlatList
-          data={filteredData}
+          data={dataWithAds}
           keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
-            <PharmacyCard
-              pharmacy={item as any}
-              distance={item.distance_meters}
-              isClosest={filter === 'open' && index === 0}
-            />
-          )}
+          renderItem={({ item }) => {
+            if (item.isAd) {
+              return (
+                <View style={{ paddingHorizontal: 20 }}>
+                  <AdBanner />
+                </View>
+              );
+            }
+            // Find actual index of the pharmacy in filteredData to determine if it is closest
+            const actualIndex = filteredData.findIndex((p) => p.id === item.id);
+            return (
+              <PharmacyCard
+                pharmacy={item as any}
+                distance={item.distance_meters}
+                isClosest={filter === 'open' && actualIndex === 0}
+              />
+            );
+          }}
           refreshing={isRefetching}
           onRefresh={refetch}
           contentContainerStyle={styles.list}

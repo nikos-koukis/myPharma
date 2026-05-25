@@ -40,7 +40,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     },
   },
-  plugins: ['expo-router', 'expo-location', 'expo-font'],
+  plugins: [
+    'expo-router',
+    'expo-location',
+    'expo-font',
+    [
+      'react-native-google-mobile-ads',
+      {
+        androidAppId: 'ca-app-pub-3940256099942544~3347511713',
+        iosAppId: 'ca-app-pub-3940256099942544~1458002511',
+      },
+    ],
+  ],
   extra: {
     eas: {
       projectId: 'ddef163b-37b7-4f05-8d62-2e6f32a08d69',

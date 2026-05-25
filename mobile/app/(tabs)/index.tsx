@@ -23,6 +23,7 @@ import { useLocation } from '../../src/hooks/useLocation';
 import { useNearbyPharmacies } from '../../src/hooks/usePharmacies';
 import { PharmacyMap } from '../../src/components/PharmacyMap';
 import { PharmacyCard } from '../../src/components/PharmacyCard';
+import { AdBanner } from '../../src/components/AdBanner';
 import { LoadingState } from '../../src/components/LoadingState';
 import { EmptyState } from '../../src/components/EmptyState';
 import { useAppStore } from '../../src/store';
@@ -102,6 +103,20 @@ export default function MapScreen() {
       return true;
     });
   }, [data, searchQuery, statusFilter]);
+
+  // Inject AdMob Banners every 5 items in the list view
+  const dataWithAds = useMemo(() => {
+    if (!filteredData || filteredData.length === 0) return [];
+    const result: any[] = [];
+    filteredData.forEach((item, index) => {
+      result.push(item);
+      // Inject banner ad after every 5 items
+      if ((index + 1) % 5 === 0 && index !== filteredData.length - 1) {
+        result.push({ isAd: true, id: `ad-${item.id}` });
+      }
+    });
+    return result;
+  }, [filteredData]);
 
   const hasInitialSelection = useRef(false);
 
@@ -232,9 +247,18 @@ export default function MapScreen() {
       {/* List View */}
       {showList && (
         <FlatList
-          data={filteredData}
+          data={dataWithAds}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <PharmacyCard pharmacy={item} />}
+          renderItem={({ item }) => {
+            if (item.isAd) {
+              return (
+                <View style={{ paddingHorizontal: 20 }}>
+                  <AdBanner />
+                </View>
+              );
+            }
+            return <PharmacyCard pharmacy={item} />;
+          }}
           contentContainerStyle={[
             styles.listContent,
             { paddingTop: insets.top + 16 }
@@ -449,6 +473,8 @@ export default function MapScreen() {
               </View>
             </View>
 
+            <AdBanner />
+
             <View style={styles.actionButtons}>
               <Pressable
                 style={({ pressed }) => [
@@ -473,6 +499,12 @@ export default function MapScreen() {
               </Pressable>
             </View>
           </BlurView>
+        </View>
+      )}
+
+      {!showList && !selectedPharmacy && filteredData.length > 0 && (
+        <View style={[styles.bottomSafeArea, { paddingBottom: insets.bottom + 96 }]}>
+          <AdBanner />
         </View>
       )}
 

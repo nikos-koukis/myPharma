@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Animated, Dimensions, Im
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { PharmacyIcon } from '../../src/components/PharmacyIcon';
+import { AdBanner } from '../../src/components/AdBanner';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
@@ -246,6 +247,8 @@ export default function PharmacyDetailScreen() {
           </View>
 
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+          <AdBanner />
 
           {/* Info Section */}
           <View style={styles.infoSection}>
