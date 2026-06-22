@@ -77,7 +77,7 @@ export const config = {
 
     baseUrl: 'https://www.xo.gr/efimerevonta-farmakeia',
     proxyUrl: env('SCRAPER_PROXY_URL', ''),
-    // When true, route EVERY request through proxyUrl (e.g. anyone.io SOCKS5),
+    // When true, route EVERY request through proxyUrl (e.g. a SOCKS5 proxy),
     // not just the final retry. Use this to replace a system-wide VPN.
     proxyAlways: envBool('SCRAPER_PROXY_ALWAYS', false),
 

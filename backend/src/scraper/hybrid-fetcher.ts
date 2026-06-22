@@ -208,7 +208,7 @@ function buildCommand(url: string, useProxy: boolean, includeCookies: boolean): 
   }
 
   if (useProxy && proxyUrl) {
-    // SOCKS proxies (e.g. anyone.io) keep TLS end-to-end, so SSL verification
+    // SOCKS proxies keep TLS end-to-end, so SSL verification
     // still works and must NOT be disabled. -k is only needed for HTTP MITM
     // proxies (e.g. Bright Data) that intercept TLS.
     if (!/^socks/i.test(proxyUrl)) {
