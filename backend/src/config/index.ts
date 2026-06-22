@@ -76,7 +76,19 @@ export const config = {
     dbBatchSize: envInt('SCRAPER_DB_BATCH_SIZE', 50),
 
     baseUrl: 'https://www.xo.gr/efimerevonta-farmakeia',
-    proxyUrl: env('SCRAPER_PROXY_URL', ''), // Used on retry only
+    proxyUrl: env('SCRAPER_PROXY_URL', ''),
+    // When true, route EVERY request through proxyUrl (e.g. anyone.io SOCKS5),
+    // not just the final retry. Use this to replace a system-wide VPN.
+    proxyAlways: envBool('SCRAPER_PROXY_ALWAYS', false),
+
+    // FlareSolverr — when set (e.g. http://127.0.0.1:8191/v1), fetch pages
+    // through a headless browser that solves Cloudflare's "Just a moment"
+    // managed challenge. Required because xo.gr challenges datacenter IPs and
+    // cf_clearance is bound to the browser's TLS fingerprint (can't be reused
+    // by curl-impersonate). Takes precedence over curl-impersonate when set.
+    flaresolverrUrl: env('FLARESOLVERR_URL', ''),
+    flaresolverrSession: env('FLARESOLVERR_SESSION', 'xo'),
+    flaresolverrTimeout: envInt('FLARESOLVERR_MAX_TIMEOUT', 60000),
 
     // ===== FAILED URL RETRY =====
     // Cron schedule for retrying failed URLs (default: every hour)

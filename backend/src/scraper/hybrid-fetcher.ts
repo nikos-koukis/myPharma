@@ -208,7 +208,12 @@ function buildCommand(url: string, useProxy: boolean, includeCookies: boolean): 
   }
 
   if (useProxy && proxyUrl) {
-    curlArgs.push('-k');  // Skip SSL verification (required for MITM proxy)
+    // SOCKS proxies (e.g. anyone.io) keep TLS end-to-end, so SSL verification
+    // still works and must NOT be disabled. -k is only needed for HTTP MITM
+    // proxies (e.g. Bright Data) that intercept TLS.
+    if (!/^socks/i.test(proxyUrl)) {
+      curlArgs.push('-k');  // Skip SSL verification (required for HTTP MITM proxy)
+    }
     curlArgs.push(`-x ${shellEscape(proxyUrl)}`);
   }
 
@@ -278,6 +283,95 @@ async function executeCurl(url: string, useProxy: boolean, useCookies: boolean):
   }
 }
 
+// ===== FLARESOLVERR (Cloudflare challenge solver) =====
+// When config.scraper.flaresolverrUrl is set, fetch through a headless browser
+// that solves Cloudflare's managed challenge. cf_clearance is bound to the
+// browser's TLS fingerprint + IP, so it cannot be handed off to curl-impersonate
+// — all requests must go through FlareSolverr's own persistent browser session.
+const FLARESOLVERR_URL = config.scraper.flaresolverrUrl;
+const FLARESOLVERR_SESSION = config.scraper.flaresolverrSession;
+let flareSessionReady = false;
+
+// Serialize requests: one FlareSolverr session == one browser, so concurrent
+// requests to the same session would conflict. This queues them regardless of
+// SCRAPER_CONCURRENCY.
+let flareQueue: Promise<unknown> = Promise.resolve();
+function withFlareLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = flareQueue.then(fn, fn);
+  flareQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function flareCommand(body: Record<string, unknown>, timeoutMs: number): Promise<any> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(FLARESOLVERR_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function ensureFlareSession(): Promise<void> {
+  if (flareSessionReady) return;
+  // Creating an existing session is a harmless no-op error; either way we're ready.
+  await flareCommand({ cmd: 'sessions.create', session: FLARESOLVERR_SESSION }, 60000)
+    .catch(() => undefined);
+  flareSessionReady = true;
+}
+
+async function resetFlareSession(): Promise<void> {
+  flareSessionReady = false;
+  await flareCommand({ cmd: 'sessions.destroy', session: FLARESOLVERR_SESSION }, 30000)
+    .catch(() => undefined);
+}
+
+/**
+ * Fetch a page through FlareSolverr's headless browser (solves Cloudflare).
+ * Drops the session on failure/challenge so the next attempt re-solves fresh.
+ */
+async function fetchViaFlareSolverr(url: string): Promise<FetchResult> {
+  return withFlareLock(async () => {
+    await ensureFlareSession();
+    const maxTimeout = config.scraper.flaresolverrTimeout;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let data: any;
+    try {
+      data = await flareCommand(
+        { cmd: 'request.get', session: FLARESOLVERR_SESSION, url, maxTimeout },
+        maxTimeout + 30000,
+      );
+    } catch (err) {
+      await resetFlareSession();
+      throw new Error(`FlareSolverr request failed: ${(err as Error).message}`);
+    }
+
+    const solution = data?.solution ?? {};
+    const html: string = solution.response ?? '';
+    const status: number = solution.status ?? (data?.status === 'ok' ? 200 : 403);
+
+    // FlareSolverr error or an unsolved challenge → drop the session so the next
+    // retry spins up a fresh browser and re-solves.
+    const stillChallenged =
+      data?.status !== 'ok' ||
+      html.includes('Just a moment') ||
+      html.includes('challenge-running');
+    if (stillChallenged || status === 403) {
+      await resetFlareSession();
+    }
+
+    return { html, status, url, usedProxy: true };
+  });
+}
+
 /**
  * Sleep helper
  */
@@ -341,7 +435,13 @@ export async function fetchPage(url: string, maxRetries: number = config.scraper
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const useProxy = false; // Only use proxy on final retry
+    // Route through proxy when configured: either on every request
+    // (SCRAPER_PROXY_ALWAYS=true, replaces a system VPN) or only on the
+    // final retry (cost-saving for paid residential proxies).
+    const isLastAttempt = attempt === maxRetries;
+    const useProxy =
+      !!config.scraper.proxyUrl &&
+      (config.scraper.proxyAlways || isLastAttempt);
     const useCookies = cookieJar.cookies.size > 0;
 
     if (attempt > 1) {
@@ -353,7 +453,9 @@ export async function fetchPage(url: string, maxRetries: number = config.scraper
     }
 
     try {
-      const result = await executeCurl(url, useProxy, useCookies);
+      const result = FLARESOLVERR_URL
+        ? await fetchViaFlareSolverr(url)
+        : await executeCurl(url, useProxy, useCookies);
 
       // Track HTTP status code in metrics
       scraperHttpStatusTotal.inc({ status_code: String(result.status) });
@@ -417,4 +519,7 @@ export async function fetchPage(url: string, maxRetries: number = config.scraper
 export async function closeBrowser(): Promise<void> {
   cookieJar.cookies.clear();
   cookieJar.requestCount = 0;
+  if (FLARESOLVERR_URL && flareSessionReady) {
+    await resetFlareSession();
+  }
 }
