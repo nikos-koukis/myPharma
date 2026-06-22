@@ -9,7 +9,7 @@ async function main() {
   // Start the API server
   await startServer();
 
-  // Main scraper cron (every 8 hours by default)
+  // Main scraper cron (daily at 11:00 Europe/Athens by default)
   cron.schedule(config.scraper.pharmacyCron, async () => {
     console.log('[cron] Running pharmacy scrape...');
     try {
@@ -21,7 +21,7 @@ async function main() {
     } catch (err) {
       console.error('[cron] Pharmacy scrape failed:', err);
     }
-  });
+  }, { timezone: config.scraper.cronTimezone });
 
   // Retry failed URLs cron (every hour by default)
   cron.schedule(config.scraper.retryFailedCron, async () => {
@@ -38,7 +38,7 @@ async function main() {
     } catch (err) {
       console.error('[cron] Failed URL retry failed:', err);
     }
-  });
+  }, { timezone: config.scraper.cronTimezone });
 
   console.log(`[cron] Pharmacy scrape scheduled: ${config.scraper.pharmacyCron}`);
   console.log(`[cron] Failed URL retry scheduled: ${config.scraper.retryFailedCron}`);
