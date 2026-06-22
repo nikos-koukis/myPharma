@@ -9,7 +9,7 @@ async function main() {
   // Start the API server
   await startServer();
 
-  // Main scraper cron (daily at 11:00 Europe/Athens by default)
+  // Main scraper cron (every 8 hours, Europe/Athens, by default)
   cron.schedule(config.scraper.pharmacyCron, async () => {
     console.log('[cron] Running pharmacy scrape...');
     try {

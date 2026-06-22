@@ -41,9 +41,9 @@ export const config = {
   },
 
   scraper: {
-    // Daily at 11:00. Interpreted in `cronTimezone` (Europe/Athens), NOT the
-    // server's timezone — the VPS runs on Europe/Berlin.
-    pharmacyCron: env('SCRAPER_PHARMACY_CRON', '0 11 * * *'),
+    // Every 8 hours (00:00 / 08:00 / 16:00). Interpreted in `cronTimezone`
+    // (Europe/Athens), NOT the server's timezone — the VPS runs on Europe/Berlin.
+    pharmacyCron: env('SCRAPER_PHARMACY_CRON', '0 */8 * * *'),
     // Timezone for ALL cron schedules below.
     cronTimezone: env('CRON_TIMEZONE', 'Europe/Athens'),
 
